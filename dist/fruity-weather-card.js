@@ -1579,9 +1579,6 @@ let y = class extends q {
     const g = e.length, A = (f) => g > 1 ? f / (g - 1) * 100 : 50, b = (f) => (p - f) / h * 100, u = e.map((f, O) => `${A(O)},${b(f.temp)}`).join(" "), x = `0,100 ${u} 100,100`, _ = Math.max(1, Math.round(g / 8)), v = this._hourScrub !== null ? e[this._hourScrub] : void 0;
     return m`
       <div class="sheet-readout ${v ? "scrubbing" : ""}">
-        <div class="sheet-unit">
-          ${v ? this._clockLabel(new Date(v.time)) : t === "°F" ? "Fahrenheit (°F)" : "Celsius (°C)"}
-        </div>
         ${v ? m`
               <div class="sheet-hilo scrubbing">
                 <img class="sheet-cond"
@@ -1596,6 +1593,9 @@ let y = class extends q {
                      src=${this._iconUrl(Q(i.condition, !1))} alt="" />
               </div>
             `}
+        <div class="sheet-unit">
+          ${v ? this._clockLabel(new Date(v.time)) : t === "°F" ? "Fahrenheit (°F)" : "Celsius (°C)"}
+        </div>
       </div>
 
       <div class="sheet-glyphs">
@@ -2257,17 +2257,13 @@ y.styles = $e`
      */
     .sheet-readout { transform: translateX(0); }
     /* Shrink-wrapped while scrubbing so its width IS its content width — a
-       full-width block cannot be slid under the cursor, it would just centre
-       its text in the sheet. */
+       full-width block cannot be slid under the cursor, it would only centre
+       its own text in the sheet. Layout is otherwise untouched: value row on
+       top, caption beneath, exactly as at rest. */
     .sheet-readout.scrubbing {
       display: inline-block;
-      text-align: center;
       will-change: transform;
     }
-    .sheet-readout.scrubbing .sheet-hilo { justify-content: center; }
-    /* Caption sits ABOVE the value while scrubbing and below it at rest; the
-       source order is caption-first, so only the resting state reorders. */
-    .sheet-readout:not(.scrubbing) { display: flex; flex-direction: column-reverse; }
     .scrub-temp { font-size: 34px; font-weight: 500; letter-spacing: -0.5px; }
     .sheet-hilo.scrubbing { display: flex; align-items: center; }
     .sheet-hilo.scrubbing .sheet-cond { margin-left: 0; margin-right: 2px; }

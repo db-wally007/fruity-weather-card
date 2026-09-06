@@ -1451,9 +1451,6 @@ export class FruityWeatherCard extends LitElement {
 
     return html`
       <div class="sheet-readout ${s ? 'scrubbing' : ''}">
-        <div class="sheet-unit">
-          ${s ? this._clockLabel(new Date(s.time)) : (unit === '°F' ? 'Fahrenheit (°F)' : 'Celsius (°C)')}
-        </div>
         ${s
           ? html`
               <div class="sheet-hilo scrubbing">
@@ -1470,6 +1467,9 @@ export class FruityWeatherCard extends LitElement {
                      src=${this._iconUrl(iconFor(day.condition, false))} alt="" />
               </div>
             `}
+        <div class="sheet-unit">
+          ${s ? this._clockLabel(new Date(s.time)) : (unit === '°F' ? 'Fahrenheit (°F)' : 'Celsius (°C)')}
+        </div>
       </div>
 
       <div class="sheet-glyphs">
@@ -2294,17 +2294,13 @@ export class FruityWeatherCard extends LitElement {
      */
     .sheet-readout { transform: translateX(0); }
     /* Shrink-wrapped while scrubbing so its width IS its content width — a
-       full-width block cannot be slid under the cursor, it would just centre
-       its text in the sheet. */
+       full-width block cannot be slid under the cursor, it would only centre
+       its own text in the sheet. Layout is otherwise untouched: value row on
+       top, caption beneath, exactly as at rest. */
     .sheet-readout.scrubbing {
       display: inline-block;
-      text-align: center;
       will-change: transform;
     }
-    .sheet-readout.scrubbing .sheet-hilo { justify-content: center; }
-    /* Caption sits ABOVE the value while scrubbing and below it at rest; the
-       source order is caption-first, so only the resting state reorders. */
-    .sheet-readout:not(.scrubbing) { display: flex; flex-direction: column-reverse; }
     .scrub-temp { font-size: 34px; font-weight: 500; letter-spacing: -0.5px; }
     .sheet-hilo.scrubbing { display: flex; align-items: center; }
     .sheet-hilo.scrubbing .sheet-cond { margin-left: 0; margin-right: 2px; }
