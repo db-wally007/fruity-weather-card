@@ -579,7 +579,7 @@ export class FruityWeatherCard extends LitElement {
       // left edge — so it is positioned against the sheet rather than within it.
       const y = Math.min(Math.max(this._sheetAnchor - top, 22), Math.max(h - 22, 22));
       arrow.style.top = `${top + y}px`;
-      arrow.style.left = `${sheet.offsetLeft - 6}px`;
+      arrow.style.left = `${sheet.offsetLeft - 10}px`;
     }
   }
 
@@ -1448,13 +1448,10 @@ export class FruityWeatherCard extends LitElement {
       ${s
         ? html`
             <div class="sheet-hilo scrubbing">
-              <div class="scrub-time">${this._clockLabel(new Date(s.time))}</div>
-              <div class="scrub-row">
-                <img class="sheet-cond"
-                     src=${this._iconUrl(iconFor(s.condition, this._nightAt(new Date(s.time))))}
-                     alt=${s.condition} />
-                <span class="scrub-temp">${round(s.temp)}°</span>
-              </div>
+              <img class="sheet-cond"
+                   src=${this._iconUrl(iconFor(s.condition, this._nightAt(new Date(s.time))))}
+                   alt=${s.condition} />
+              <span class="scrub-temp">${round(s.temp)}°</span>
             </div>
           `
         : html`
@@ -1464,7 +1461,9 @@ export class FruityWeatherCard extends LitElement {
                    src=${this._iconUrl(iconFor(day.condition, false))} alt="" />
             </div>
           `}
-      <div class="sheet-unit">${unit === '°F' ? 'Fahrenheit (°F)' : 'Celsius (°C)'}</div>
+      <div class="sheet-unit">
+        ${s ? this._clockLabel(new Date(s.time)) : (unit === '°F' ? 'Fahrenheit (°F)' : 'Celsius (°C)')}
+      </div>
 
       <div class="sheet-glyphs">
         ${hours.map((h, i) => (i % glyphStep === 0
@@ -1478,7 +1477,7 @@ export class FruityWeatherCard extends LitElement {
       <div class="sheet-chart">
         <div class="sheet-plot"
              @pointerdown=${(e: PointerEvent) => this._scrubAt(e, n)}
-             @pointermove=${(e: PointerEvent) => { if (e.buttons || e.pointerType !== 'mouse') this._scrubAt(e, n); }}
+             @pointermove=${(e: PointerEvent) => this._scrubAt(e, n)}
              @pointerup=${() => { this._hourScrub = null; }}
              @pointercancel=${() => { this._hourScrub = null; }}
              @pointerleave=${() => { this._hourScrub = null; }}>
@@ -2052,7 +2051,7 @@ export class FruityWeatherCard extends LitElement {
      */
     .sheet {
       position: absolute;
-      left: calc(2 * var(--fwc-tile) + 2 * var(--fwc-gap));
+      left: calc(12px + 2 * var(--fwc-tile) + 2 * var(--fwc-gap));
       width: calc(3 * var(--fwc-tile) + 2 * var(--fwc-gap));
       max-width: calc(100% - 2 * var(--fwc-gap));
       max-height: calc(100% - 20px);
@@ -2069,13 +2068,13 @@ export class FruityWeatherCard extends LitElement {
     .sheet-arrow {
       position: absolute;
       z-index: 1;
-      width: 13px;
-      height: 13px;
+      width: 20px;
+      height: 20px;
       transform: translateY(-50%) rotate(45deg);
       background: #16161a;
-      border-left: 0.5px solid var(--fwc-hairline);
-      border-bottom: 0.5px solid var(--fwc-hairline);
-      border-bottom-left-radius: 3px;
+      border-left: 1px solid rgba(255, 255, 255, 0.22);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+      border-bottom-left-radius: 4px;
     }
     .sheet-head {
       display: flex;
@@ -2154,7 +2153,14 @@ export class FruityWeatherCard extends LitElement {
       letter-spacing: -0.5px;
     }
     .sheet-lo { color: var(--fwc-dim); }
-    .sheet-cond { width: var(--fwc-icon); height: var(--fwc-icon); object-fit: contain; margin-left: 6px; }
+    /* 30% over the strip's glyph size: beside 34px digits the standard icon
+       reads undersized, and this is the one place the two sit together. */
+    .sheet-cond {
+      width: calc(var(--fwc-icon) * 1.3);
+      height: calc(var(--fwc-icon) * 1.3);
+      object-fit: contain;
+      margin-left: 6px;
+    }
     .sheet-unit { font-size: calc(var(--d-font) * 0.85); color: var(--fwc-dim); margin-top: 1px; }
 
     .sheet-glyphs {
@@ -2237,11 +2243,10 @@ export class FruityWeatherCard extends LitElement {
       color: var(--fwc-dim);
     }
     /* Scrub readout — replaces the H/L block while a finger is on the curve. */
-    .sheet-hilo.scrubbing { display: block; }
-    .scrub-time { font-size: calc(var(--d-font) * 0.85); color: var(--fwc-dim); }
-    .scrub-row { display: flex; align-items: center; gap: 8px; }
+    /* Same two-line block as the static state — big row then caption — so the
+       readout never changes the sheet's height as a finger moves across. */
     .scrub-temp { font-size: 34px; font-weight: 500; letter-spacing: -0.5px; }
-    .scrub-row .sheet-cond { margin-left: 0; }
+    .sheet-hilo.scrubbing .sheet-cond { margin-left: 0; margin-right: 2px; }
     .scrub-line {
       position: absolute;
       top: 0;

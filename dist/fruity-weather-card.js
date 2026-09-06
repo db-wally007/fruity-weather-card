@@ -295,8 +295,8 @@ class Z {
     for (; (a = P.nextNode()) !== null && l.length < n; ) {
       if (a.nodeType === 1) {
         if (a.hasAttributes()) for (const h of a.getAttributeNames()) if (h.endsWith(Lt)) {
-          const d = p[r++], g = a.getAttribute(h).split(R), f = /([.?@])?(.*)/.exec(d);
-          l.push({ type: 1, index: o, name: f[2], strings: g, ctor: f[1] === "." ? Xe : f[1] === "?" ? Ye : f[1] === "@" ? Ve : lt }), a.removeAttribute(h);
+          const d = p[r++], g = a.getAttribute(h).split(R), A = /([.?@])?(.*)/.exec(d);
+          l.push({ type: 1, index: o, name: A[2], strings: g, ctor: A[1] === "." ? Xe : A[1] === "?" ? Ye : A[1] === "@" ? Ve : lt }), a.removeAttribute(h);
         } else h.startsWith(R) && (l.push({ type: 6, index: o }), a.removeAttribute(h));
         if (Ft.test(a.tagName)) {
           const h = a.textContent.split(R), d = h.length - 1;
@@ -629,11 +629,11 @@ async function ai(e, t) {
   const l = await n.json(), c = Array.isArray(l) ? l : [l];
   if (c.length !== C * B)
     throw new Error(`open-meteo returned ${c.length} of ${C * B} points`);
-  const p = (b) => (/* @__PURE__ */ new Date(`${b}Z`)).getTime(), h = c[0].hourly.time.map(p), d = c[0].minutely_15.time.map(p), g = (b, u) => Array.from({ length: b }, (v, _) => {
-    const x = new Float32Array(C * B);
-    for (let A = 0; A < c.length; A++) x[A] = u(c[A], _) || 0;
-    return x;
-  }), f = {
+  const p = (b) => (/* @__PURE__ */ new Date(`${b}Z`)).getTime(), h = c[0].hourly.time.map(p), d = c[0].minutely_15.time.map(p), g = (b, u) => Array.from({ length: b }, (x, _) => {
+    const v = new Float32Array(C * B);
+    for (let f = 0; f < c.length; f++) v[f] = u(c[f], _) || 0;
+    return v;
+  }), A = {
     fetchedAt: Date.now(),
     lat0: e,
     lon0: t,
@@ -646,7 +646,7 @@ async function ai(e, t) {
       frames: g(d.length, (b, u) => b.minutely_15.precipitation[u])
     }
   };
-  return ri(f), f;
+  return ri(A), A;
 }
 const Kt = "fruity-weather-card:precip-grid:v3", Gt = 30 * 6e4;
 function oi(e, t) {
@@ -703,11 +703,11 @@ function li(e, t = "dark") {
   for (let d = c; d <= h; d++)
     if (!(d < 0 || d >= r))
       for (let g = l; g <= p; g++) {
-        const f = (g % r + r) % r;
+        const A = (g % r + r) % r;
         n.push({
-          key: `${s}/${a}/${f}/${d}`,
-          base: `${i}/World_${s}_Gray_Base/MapServer/tile/${a}/${d}/${f}`,
-          ref: `${i}/World_${s}_Gray_Reference/MapServer/tile/${a}/${d}/${f}`,
+          key: `${s}/${a}/${A}/${d}`,
+          base: `${i}/World_${s}_Gray_Base/MapServer/tile/${a}/${d}/${A}`,
+          ref: `${i}/World_${s}_Gray_Reference/MapServer/tile/${a}/${d}/${A}`,
           left: g * o - e.originX,
           top: d * o - e.originY,
           size: o
@@ -743,9 +743,9 @@ function pi(e, t, i, s) {
   if (!c) return;
   const p = c.createImageData(C, B);
   for (let _ = 0; _ < B; _++)
-    for (let x = 0; x < C; x++) {
-      const A = (B - 1 - _) * C + x;
-      ci(i[A], p.data, (_ * C + x) * 4);
+    for (let v = 0; v < C; v++) {
+      const f = (B - 1 - _) * C + v;
+      ci(i[f], p.data, (_ * C + v) * 4);
     }
   c.putImageData(p, 0, 0);
   const h = document.createElement("canvas");
@@ -753,8 +753,8 @@ function pi(e, t, i, s) {
   const d = h.getContext("2d");
   if (!d) return;
   d.imageSmoothingEnabled = !0, d.imageSmoothingQuality = "high", d.drawImage(l, 0, 0, h.width, h.height);
-  const g = ei(t.lat0, t.lon0), f = (rt(g.west, s.z) * 256 - s.originX) * a, b = (rt(g.east, s.z) * 256 - s.originX) * a, u = (nt(g.north, s.z) * 256 - s.originY) * a, v = (nt(g.south, s.z) * 256 - s.originY) * a;
-  n.imageSmoothingEnabled = !0, n.imageSmoothingQuality = "high", n.drawImage(h, f, u, b - f, v - u);
+  const g = ei(t.lat0, t.lon0), A = (rt(g.west, s.z) * 256 - s.originX) * a, b = (rt(g.east, s.z) * 256 - s.originX) * a, u = (nt(g.north, s.z) * 256 - s.originY) * a, x = (nt(g.south, s.z) * 256 - s.originY) * a;
+  n.imageSmoothingEnabled = !0, n.imageSmoothingQuality = "high", n.drawImage(h, A, u, b - A, x - u);
 }
 function gi(e, t, i, s) {
   for (let a = 0; a < e.length; a++) s[a] = e[a] + (t[a] - e[a]) * i;
@@ -796,8 +796,8 @@ async function mi(e, t, i = !1) {
   for (let h = 0; h < r.length; h++) {
     const d = r[h], g = n[h];
     if (g == null) continue;
-    const f = d.slice(0, 10), b = Number(d.slice(11, 13)), u = (/* @__PURE__ */ new Date(`${d}:00`)).getTime(), v = c.get(f) ?? [];
-    v.push({ hour: b, time: u, temp: g, condition: ui(l[h] ?? 3) }), c.set(f, v);
+    const A = d.slice(0, 10), b = Number(d.slice(11, 13)), u = (/* @__PURE__ */ new Date(`${d}:00`)).getTime(), x = c.get(A) ?? [];
+    x.push({ hour: b, time: u, temp: g, condition: ui(l[h] ?? 3) }), c.set(A, x);
   }
   const p = { fetchedAt: Date.now(), days: c };
   return fi(p), p;
@@ -1032,7 +1032,7 @@ let y = class extends G {
     const s = e.getBoundingClientRect().height, a = t.getBoundingClientRect().height, o = 10, r = Math.min(Math.max(this._sheetAnchor - a / 2, o), Math.max(s - a - o, o));
     if (t.style.top = `${r}px`, i) {
       const n = Math.min(Math.max(this._sheetAnchor - r, 22), Math.max(a - 22, 22));
-      i.style.top = `${r + n}px`, i.style.left = `${t.offsetLeft - 6}px`;
+      i.style.top = `${r + n}px`, i.style.left = `${t.offsetLeft - 10}px`;
     }
   }
   /** Hours for the day at `index` of the daily list, or [] when unavailable. */
@@ -1337,27 +1337,27 @@ let y = class extends G {
   _sunArc() {
     const { rising: e, setting: t } = this._sunTimes();
     if (!e || !t) return;
-    const i = 864e5, s = Date.now(), a = 0.2, o = 0.8, r = 26, n = 17, l = 11, c = 100, p = (u) => u >= a && u <= o ? Math.sin(Math.PI * (u - a) / (o - a)) : u < a ? -Math.sin(Math.PI * ((a - u) / (2 * a))) : -Math.sin(Math.PI * ((u - o) / (2 * (1 - o)))), h = (u) => r - u * (u >= 0 ? n : l), d = (u, v, _) => {
-      const x = [];
-      for (let A = 0; A <= _; A++) {
-        const O = u + (v - u) * A / _;
-        x.push(`${(O * c).toFixed(2)},${h(p(O)).toFixed(2)}`);
+    const i = 864e5, s = Date.now(), a = 0.2, o = 0.8, r = 26, n = 17, l = 11, c = 100, p = (u) => u >= a && u <= o ? Math.sin(Math.PI * (u - a) / (o - a)) : u < a ? -Math.sin(Math.PI * ((a - u) / (2 * a))) : -Math.sin(Math.PI * ((u - o) / (2 * (1 - o)))), h = (u) => r - u * (u >= 0 ? n : l), d = (u, x, _) => {
+      const v = [];
+      for (let f = 0; f <= _; f++) {
+        const O = u + (x - u) * f / _;
+        v.push(`${(O * c).toFixed(2)},${h(p(O)).toFixed(2)}`);
       }
-      return `M${x.join(" L")}`;
+      return `M${v.join(" L")}`;
     }, g = (u) => Math.min(Math.max(u, 0), 1);
-    let f;
+    let A;
     if (t < e) {
-      const u = e.getTime() - i, v = g((s - u) / (t.getTime() - u));
-      f = a + v * (o - a);
+      const u = e.getTime() - i, x = g((s - u) / (t.getTime() - u));
+      A = a + x * (o - a);
     } else {
-      const u = t.getTime() - i, v = g((s - u) / (e.getTime() - u));
-      f = v < 0.5 ? o + v / 0.5 * (1 - o) : (v - 0.5) / 0.5 * a;
+      const u = t.getTime() - i, x = g((s - u) / (e.getTime() - u));
+      A = x < 0.5 ? o + x / 0.5 * (1 - o) : (x - 0.5) / 0.5 * a;
     }
-    const b = p(f);
+    const b = p(A);
     return {
       nightPath: d(0, 1, 96),
       dayPath: d(a, o, 48),
-      dotX: f * 100,
+      dotX: A * 100,
       dotY: h(b) / 44 * 100,
       isUp: b >= 0
     };
@@ -1477,19 +1477,19 @@ let y = class extends G {
            @pointerdown=${this._markPointer} @click=${l}>
         <div class="panel-head">${e.length}-DAY FORECAST</div>
         ${e.map((c, p) => {
-      const h = D(c.templow), d = D(c.temperature), g = new Date(c.datetime), f = p === 0 ? "Today" : g.toLocaleDateString(n, { weekday: "short" }), b = h === void 0 ? 0 : (h - s) / o * 100, u = h === void 0 || d === void 0 ? 0 : (d - h) / o * 100, v = p === 0 && r !== void 0 ? (r - s) / o * 100 : void 0;
+      const h = D(c.templow), d = D(c.temperature), g = new Date(c.datetime), A = p === 0 ? "Today" : g.toLocaleDateString(n, { weekday: "short" }), b = h === void 0 ? 0 : (h - s) / o * 100, u = h === void 0 || d === void 0 ? 0 : (d - h) / o * 100, x = p === 0 && r !== void 0 ? (r - s) / o * 100 : void 0;
       return m`
             <div class="drow" tappable
                  @pointerdown=${this._markPointer}
                  @click=${(_) => {
         _.stopPropagation(), !this._movedSincePointer(_) && this._openDaySheet(p, _.currentTarget);
       }}>
-              <div class="dday">${f}</div>
+              <div class="dday">${A}</div>
               <img class="dicon" src=${this._iconUrl(Q(c.condition, p === 0 && this._isNight))} alt=${c.condition ?? ""} />
               <div class="dlo">${k(h)}°</div>
               <div class="track">
                 <div class="bar" style=${`left:${b}%;width:${u}%;background:linear-gradient(90deg, ${Qt(h ?? s)}, ${Qt(d ?? a)})`}></div>
-                ${v !== void 0 ? m`<div class="dot" style=${`left:${Math.min(Math.max(v, 0), 100)}%`}></div>` : w}
+                ${x !== void 0 ? m`<div class="dot" style=${`left:${Math.min(Math.max(x, 0), 100)}%`}></div>` : w}
               </div>
               <div class="dhi">${k(d)}°</div>
             </div>
@@ -1574,19 +1574,16 @@ let y = class extends G {
       `;
     if (!e.length)
       return m`<div class="sheet-note">No hourly forecast for this day.</div>`;
-    const s = e.map((A) => A.temp), a = Math.max(...s), o = Math.min(...s), r = e[s.indexOf(a)], n = e[s.indexOf(o)], l = 5, c = Math.floor(o / l) * l, p = Math.ceil(a / l) * l, h = Math.max(p - c, l), d = [];
-    for (let A = p; A >= c - 1e-3; A -= l) d.push(A);
-    const g = e.length, f = (A) => g > 1 ? A / (g - 1) * 100 : 50, b = (A) => (p - A) / h * 100, u = e.map((A, O) => `${f(O)},${b(A.temp)}`).join(" "), v = `0,100 ${u} 100,100`, _ = Math.max(1, Math.round(g / 8)), x = this._hourScrub !== null ? e[this._hourScrub] : void 0;
+    const s = e.map((f) => f.temp), a = Math.max(...s), o = Math.min(...s), r = e[s.indexOf(a)], n = e[s.indexOf(o)], l = 5, c = Math.floor(o / l) * l, p = Math.ceil(a / l) * l, h = Math.max(p - c, l), d = [];
+    for (let f = p; f >= c - 1e-3; f -= l) d.push(f);
+    const g = e.length, A = (f) => g > 1 ? f / (g - 1) * 100 : 50, b = (f) => (p - f) / h * 100, u = e.map((f, O) => `${A(O)},${b(f.temp)}`).join(" "), x = `0,100 ${u} 100,100`, _ = Math.max(1, Math.round(g / 8)), v = this._hourScrub !== null ? e[this._hourScrub] : void 0;
     return m`
-      ${x ? m`
+      ${v ? m`
             <div class="sheet-hilo scrubbing">
-              <div class="scrub-time">${this._clockLabel(new Date(x.time))}</div>
-              <div class="scrub-row">
-                <img class="sheet-cond"
-                     src=${this._iconUrl(Q(x.condition, this._nightAt(new Date(x.time))))}
-                     alt=${x.condition} />
-                <span class="scrub-temp">${k(x.temp)}°</span>
-              </div>
+              <img class="sheet-cond"
+                   src=${this._iconUrl(Q(v.condition, this._nightAt(new Date(v.time))))}
+                   alt=${v.condition} />
+              <span class="scrub-temp">${k(v.temp)}°</span>
             </div>
           ` : m`
             <div class="sheet-hilo">
@@ -1595,21 +1592,21 @@ let y = class extends G {
                    src=${this._iconUrl(Q(i.condition, !1))} alt="" />
             </div>
           `}
-      <div class="sheet-unit">${t === "°F" ? "Fahrenheit (°F)" : "Celsius (°C)"}</div>
+      <div class="sheet-unit">
+        ${v ? this._clockLabel(new Date(v.time)) : t === "°F" ? "Fahrenheit (°F)" : "Celsius (°C)"}
+      </div>
 
       <div class="sheet-glyphs">
-        ${e.map((A, O) => O % _ === 0 ? m`<img class="sglyph ${O === 0 ? "first" : O === g - 1 ? "last" : ""}"
-                      style=${`left:${f(O)}%`}
-                      src=${this._iconUrl(Q(A.condition, this._nightAt(new Date(A.time))))}
-                      alt=${A.condition} />` : w)}
+        ${e.map((f, O) => O % _ === 0 ? m`<img class="sglyph ${O === 0 ? "first" : O === g - 1 ? "last" : ""}"
+                      style=${`left:${A(O)}%`}
+                      src=${this._iconUrl(Q(f.condition, this._nightAt(new Date(f.time))))}
+                      alt=${f.condition} />` : w)}
       </div>
 
       <div class="sheet-chart">
         <div class="sheet-plot"
-             @pointerdown=${(A) => this._scrubAt(A, g)}
-             @pointermove=${(A) => {
-      (A.buttons || A.pointerType !== "mouse") && this._scrubAt(A, g);
-    }}
+             @pointerdown=${(f) => this._scrubAt(f, g)}
+             @pointermove=${(f) => this._scrubAt(f, g)}
              @pointerup=${() => {
       this._hourScrub = null;
     }}
@@ -1619,8 +1616,8 @@ let y = class extends G {
              @pointerleave=${() => {
       this._hourScrub = null;
     }}>
-          ${d.map((A) => m`
-            <div class="sgl" style=${`top:${b(A)}%`}></div>`)}
+          ${d.map((f) => m`
+            <div class="sgl" style=${`top:${b(f)}%`}></div>`)}
           <svg class="scurve" viewBox="0 0 100 100" preserveAspectRatio="none">
             <defs>
               <linearGradient id="sfill" x1="0" y1="0" x2="0" y2="1">
@@ -1629,30 +1626,30 @@ let y = class extends G {
                 <stop offset="100%" stop-color="#3f7fb0" stop-opacity="0.18" />
               </linearGradient>
             </defs>
-            <polygon points=${v} fill="url(#sfill)" />
+            <polygon points=${x} fill="url(#sfill)" />
             <polyline points=${u} vector-effect="non-scaling-stroke" />
           </svg>
-          ${x ? w : m`
-                <div class="smark hi" style=${`left:${f(e.indexOf(r))}%; top:${b(a)}%`}>
+          ${v ? w : m`
+                <div class="smark hi" style=${`left:${A(e.indexOf(r))}%; top:${b(a)}%`}>
                   <span>H</span>
                 </div>
-                <div class="smark lo" style=${`left:${f(e.indexOf(n))}%; top:${b(o)}%`}>
+                <div class="smark lo" style=${`left:${A(e.indexOf(n))}%; top:${b(o)}%`}>
                   <span>L</span>
                 </div>
               `}
-          ${x ? m`
-                <div class="scrub-line" style=${`left:${f(this._hourScrub)}%`}></div>
-                <div class="scrub-dot" style=${`left:${f(this._hourScrub)}%; top:${b(x.temp)}%`}></div>
+          ${v ? m`
+                <div class="scrub-line" style=${`left:${A(this._hourScrub)}%`}></div>
+                <div class="scrub-dot" style=${`left:${A(this._hourScrub)}%; top:${b(v.temp)}%`}></div>
               ` : w}
         </div>
         <div class="sheet-yaxis">
-          ${d.map((A) => m`<span style=${`top:${b(A)}%`}>${k(A)}°</span>`)}
+          ${d.map((f) => m`<span style=${`top:${b(f)}%`}>${k(f)}°</span>`)}
         </div>
       </div>
 
       <div class="sheet-xaxis">
-        ${e.map((A, O) => A.hour % 6 === 0 ? m`<span class=${O === 0 ? "first" : O === g - 1 ? "last" : ""}
-                       style=${`left:${f(O)}%`}>${this._hourLabel(A.hour)}</span>` : w)}
+        ${e.map((f, O) => f.hour % 6 === 0 ? m`<span class=${O === 0 ? "first" : O === g - 1 ? "last" : ""}
+                       style=${`left:${A(O)}%`}>${this._hourLabel(f.hour)}</span>` : w)}
       </div>
     `;
   }
@@ -1711,7 +1708,7 @@ let y = class extends G {
     `;
   }
   _renderTiles() {
-    const { rising: e, setting: t } = this._sunTimes(), i = this._override("feels_like", "apparent_temperature"), s = this._override("temperature", "temperature"), a = this._override("humidity", "humidity"), o = this._override("dew_point", "dew_point"), r = this._override("wind_speed", "wind_speed"), n = this._override("wind_gust"), l = this._override("wind_bearing", "wind_bearing"), c = this._override("precipitation_today"), p = this._overrideUnit("wind_speed", "wind_speed_unit") ?? "km/h", h = this._overrideUnit("wind_gust") ?? p, d = e && t ? e < t : !0, g = i === void 0 || s === void 0 ? "" : Math.abs(i - s) < 0.5 ? "Similar to the actual temperature." : i > s ? "It feels warmer than the actual temperature." : "It feels cooler than the actual temperature.", f = this._daily.find((A) => (D(A.precipitation) ?? 0) > 0), b = this.hass?.locale?.language ?? navigator.language, u = f ? D(f.precipitation) ?? 0 : void 0, v = u === void 0 ? "" : `${u < 1 ? "<1" : Math.round(u)} mm`, _ = f ? new Date(f.datetime).toDateString() === (/* @__PURE__ */ new Date()).toDateString() : !1, x = v ? _ ? `${v} more expected today.` : `Next expected is ${v} ${new Date(f.datetime).toLocaleDateString(b, { weekday: "short" })}.` : "None expected in the next 10 days.";
+    const { rising: e, setting: t } = this._sunTimes(), i = this._override("feels_like", "apparent_temperature"), s = this._override("temperature", "temperature"), a = this._override("humidity", "humidity"), o = this._override("dew_point", "dew_point"), r = this._override("wind_speed", "wind_speed"), n = this._override("wind_gust"), l = this._override("wind_bearing", "wind_bearing"), c = this._override("precipitation_today"), p = this._overrideUnit("wind_speed", "wind_speed_unit") ?? "km/h", h = this._overrideUnit("wind_gust") ?? p, d = e && t ? e < t : !0, g = i === void 0 || s === void 0 ? "" : Math.abs(i - s) < 0.5 ? "Similar to the actual temperature." : i > s ? "It feels warmer than the actual temperature." : "It feels cooler than the actual temperature.", A = this._daily.find((f) => (D(f.precipitation) ?? 0) > 0), b = this.hass?.locale?.language ?? navigator.language, u = A ? D(A.precipitation) ?? 0 : void 0, x = u === void 0 ? "" : `${u < 1 ? "<1" : Math.round(u)} mm`, _ = A ? new Date(A.datetime).toDateString() === (/* @__PURE__ */ new Date()).toDateString() : !1, v = x ? _ ? `${x} more expected today.` : `Next expected is ${x} ${new Date(A.datetime).toLocaleDateString(b, { weekday: "short" })}.` : "None expected in the next 10 days.";
     return m`
         ${this._renderSunTile(d, e, t)}
         ${this._renderWindTile(r, p, n, h, l)}
@@ -1721,7 +1718,7 @@ let y = class extends G {
           <div class="tile-head">${z.drop} PRECIPITATION</div>
           <div class="tile-value">${c === void 0 ? "--" : k(c)} mm</div>
           <div class="tile-sub">Today So Far</div>
-          <div class="tile-note">${x}</div>
+          <div class="tile-note">${v}</div>
         </div>
 
         <div class="tile" ?tappable=${!!this._tap("feels_like")}
@@ -1860,9 +1857,9 @@ let y = class extends G {
               </div>
               <div class="map-ticks">
                 ${n.times.map((d, g) => {
-      const f = this._mapRange === "1h";
-      return !f && g % 2 !== 0 ? w : m`<span>
-                    ${g === 0 ? "Now" : this._timeLabel(new Date(d), f)}
+      const A = this._mapRange === "1h";
+      return !A && g % 2 !== 0 ? w : m`<span>
+                    ${g === 0 ? "Now" : this._timeLabel(new Date(d), A)}
                   </span>`;
     })}
               </div>
@@ -1890,7 +1887,7 @@ let y = class extends G {
       const it = r($), [he, le] = n(31, it), [ce, de] = n(39, it);
       l += `M${he.toFixed(2)},${le.toFixed(2)}L${ce.toFixed(2)},${de.toFixed(2)}`;
     }
-    const c = a !== void 0, p = c ? a + 180 : 0, h = r(p), d = r(p + 180), g = 38, [f, b] = n(g, d), [u, v] = n(g - 3, d), [_, x] = n(24.5, d), [A, O] = n(22.5, h), [Zt, te] = n(30, h), ct = 1.32, wt = (g + 2 + 30) / 2, yt = (g + 2 - 30) / 2 * ct, [ee, ie] = n(wt + yt, h), [bt, vt] = n(wt - yt, h), xt = -Math.sin(h), _t = Math.cos(h), et = 3.4 * ct, se = bt + xt * et, ae = vt + _t * et, oe = bt - xt * et, re = vt - _t * et, ne = (M) => {
+    const c = a !== void 0, p = c ? a + 180 : 0, h = r(p), d = r(p + 180), g = 38, [A, b] = n(g, d), [u, x] = n(g - 3, d), [_, v] = n(24.5, d), [f, O] = n(22.5, h), [Zt, te] = n(30, h), ct = 1.32, wt = (g + 2 + 30) / 2, yt = (g + 2 - 30) / 2 * ct, [ee, ie] = n(wt + yt, h), [bt, vt] = n(wt - yt, h), xt = -Math.sin(h), _t = Math.cos(h), et = 3.4 * ct, se = bt + xt * et, ae = vt + _t * et, oe = bt - xt * et, re = vt - _t * et, ne = (M) => {
       const $ = Math.abs(((p - M) % 360 + 360) % 360);
       return ($ > 180 ? 360 - $ : $) < 12;
     }, kt = this._tap("wind");
@@ -1913,11 +1910,11 @@ let y = class extends G {
               why the direction arrow was silently invisible.
             -->
             ${c ? T`
-              <line class="dial-shaft" x1=${u.toFixed(2)} y1=${v.toFixed(2)}
-                    x2=${_.toFixed(2)} y2=${x.toFixed(2)}></line>
-              <line class="dial-shaft" x1=${A.toFixed(2)} y1=${O.toFixed(2)}
+              <line class="dial-shaft" x1=${u.toFixed(2)} y1=${x.toFixed(2)}
+                    x2=${_.toFixed(2)} y2=${v.toFixed(2)}></line>
+              <line class="dial-shaft" x1=${f.toFixed(2)} y1=${O.toFixed(2)}
                     x2=${Zt.toFixed(2)} y2=${te.toFixed(2)}></line>
-              <circle class="dial-tail" cx=${f.toFixed(2)} cy=${b.toFixed(2)}
+              <circle class="dial-tail" cx=${A.toFixed(2)} cy=${b.toFixed(2)}
                       r=${(3.2 * ct).toFixed(2)}></circle>
               <polygon class="dial-head" points=${`${ee.toFixed(2)},${ie.toFixed(2)} ${se.toFixed(2)},${ae.toFixed(2)} ${oe.toFixed(2)},${re.toFixed(2)}`}></polygon>` : w}
             <!-- Labels and readout draw last so the shaft passes behind them.
@@ -2034,7 +2031,7 @@ y.styles = $e`
      */
     .sheet {
       position: absolute;
-      left: calc(2 * var(--fwc-tile) + 2 * var(--fwc-gap));
+      left: calc(12px + 2 * var(--fwc-tile) + 2 * var(--fwc-gap));
       width: calc(3 * var(--fwc-tile) + 2 * var(--fwc-gap));
       max-width: calc(100% - 2 * var(--fwc-gap));
       max-height: calc(100% - 20px);
@@ -2051,13 +2048,13 @@ y.styles = $e`
     .sheet-arrow {
       position: absolute;
       z-index: 1;
-      width: 13px;
-      height: 13px;
+      width: 20px;
+      height: 20px;
       transform: translateY(-50%) rotate(45deg);
       background: #16161a;
-      border-left: 0.5px solid var(--fwc-hairline);
-      border-bottom: 0.5px solid var(--fwc-hairline);
-      border-bottom-left-radius: 3px;
+      border-left: 1px solid rgba(255, 255, 255, 0.22);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+      border-bottom-left-radius: 4px;
     }
     .sheet-head {
       display: flex;
@@ -2136,7 +2133,14 @@ y.styles = $e`
       letter-spacing: -0.5px;
     }
     .sheet-lo { color: var(--fwc-dim); }
-    .sheet-cond { width: var(--fwc-icon); height: var(--fwc-icon); object-fit: contain; margin-left: 6px; }
+    /* 30% over the strip's glyph size: beside 34px digits the standard icon
+       reads undersized, and this is the one place the two sit together. */
+    .sheet-cond {
+      width: calc(var(--fwc-icon) * 1.3);
+      height: calc(var(--fwc-icon) * 1.3);
+      object-fit: contain;
+      margin-left: 6px;
+    }
     .sheet-unit { font-size: calc(var(--d-font) * 0.85); color: var(--fwc-dim); margin-top: 1px; }
 
     .sheet-glyphs {
@@ -2219,11 +2223,10 @@ y.styles = $e`
       color: var(--fwc-dim);
     }
     /* Scrub readout — replaces the H/L block while a finger is on the curve. */
-    .sheet-hilo.scrubbing { display: block; }
-    .scrub-time { font-size: calc(var(--d-font) * 0.85); color: var(--fwc-dim); }
-    .scrub-row { display: flex; align-items: center; gap: 8px; }
+    /* Same two-line block as the static state — big row then caption — so the
+       readout never changes the sheet's height as a finger moves across. */
     .scrub-temp { font-size: 34px; font-weight: 500; letter-spacing: -0.5px; }
-    .scrub-row .sheet-cond { margin-left: 0; }
+    .sheet-hilo.scrubbing .sheet-cond { margin-left: 0; margin-right: 2px; }
     .scrub-line {
       position: absolute;
       top: 0;
