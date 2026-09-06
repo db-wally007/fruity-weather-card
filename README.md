@@ -156,6 +156,41 @@ sunrise  sunset  thunderstorm  windy
 96×90 works well. With no set present the card still lays out correctly, but every glyph is a
 broken image.
 
+### Where to get a set
+
+Four freely-licensed sets were rendered side by side at 30px before this card settled on its own
+artwork. The notes below are from that comparison, not from reading their READMEs — at the size
+the hourly strip uses, **whether the sun disc is visible beside the cloud on `partly_cloudy`** is
+the single thing that decides legibility.
+
+| Set | Licence | How it looked at 30px |
+| --- | --- | --- |
+| [basmilius/weather-icons](https://github.com/basmilius/weather-icons) (Meteocons) | MIT, © 2020– Bas Milius | The obvious first stop — large, well drawn, animated and static SVG plus PNG. But it tucks the sun **behind** the cloud on partly-cloudy, so partly-cloudy and cloudy were indistinguishable at this size. |
+| [googlefonts/noto-emoji](https://github.com/googlefonts/noto-emoji) | SIL OFL 1.1, © 2013 Google | Best small-size legibility of the four: white/grey clouds, blue rain, and the sun disc clearly beside the cloud. Two catches — there is **no moon-behind-cloud emoji**, so `night_cloudy` has to be faked, and files are named by codepoint (`emoji_uXXXX.svg`), not by condition. |
+| [microsoft/fluentui-emoji](https://github.com/microsoft/fluentui-emoji) | MIT, © Microsoft | Good sun separation, but the clouds are purple-tinted and clash with a neutral card. |
+| [makin-things/weather-icons](https://github.com/makin-things/weather-icons) | MIT, © 2019 Custom cards for Home Assistant | Built for Home Assistant, big clear sun disc — but blue clouds and an orange moon, which washed out once recoloured. |
+
+For the iOS look specifically, the reference artwork is not distributed and cannot be extracted.
+The legitimate route is **SF Symbols** — a free download from
+[developer.apple.com/sf-symbols](https://developer.apple.com/sf-symbols/), which contains
+`cloud.sun.fill` and friends. Export to PNG and rename to the list above. Apple's own
+[guide to the weather icons](https://support.apple.com/guide/iphone/learn-the-weather-icons-iph4305794fb/ios)
+is a useful reference for which glyph each condition should get.
+
+### Normalising a set
+
+Whatever you pick, check the **ink** rather than the canvas. Sets routinely carry very different
+padding inside the same nominal size — in one set the rain glyph filled 83×84 of its 96×90 canvas
+while the cloud filled 87×58 — so `background-size: contain` renders each condition at a visibly
+different size. Trim and re-pad them to a common ink fraction first:
+
+```bash
+for f in *.png; do
+  magick "$f" -trim +repage -resize 94x94 \
+          -background none -gravity center -extent 100x100 "normalised/$f"
+done
+```
+
 ## Backgrounds
 
 The 26 hero scenes in [`backgrounds/`](backgrounds/) are **derived from
