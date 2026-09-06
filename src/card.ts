@@ -705,7 +705,7 @@ export class FruityWeatherCard extends LitElement {
   private static readonly FRAME_SECONDS = 0.9;
 
   /** Day-sheet notch reach, in px. Must match border-right on .sheet-arrow. */
-  private static readonly ARROW_W = 22;
+  private static readonly ARROW_W = 26;
 
   private _togglePlayback(): void {
     if (this._mapPlaying) { this._stopPlayback(); return; }
@@ -2114,9 +2114,24 @@ export class FruityWeatherCard extends LitElement {
       width: 0;
       height: 0;
       transform: translateY(-50%);
-      border-top: 15px solid transparent;
-      border-bottom: 15px solid transparent;
-      border-right: 22px solid #16161a;
+      border-top: 18px solid transparent;
+      border-bottom: 18px solid transparent;
+      border-right: 26px solid rgba(255, 255, 255, 0.30);
+    }
+    /* A CSS triangle cannot carry a stroke, so the outline is a second triangle
+       behind it: the parent is the edge colour and this is the fill, inset so
+       the parent shows only along the two slanted sides. Without it the notch
+       is a black shape on a black sheet and reads as detached. */
+    .sheet-arrow::after {
+      content: '';
+      position: absolute;
+      top: -16px;
+      left: 2px;
+      width: 0;
+      height: 0;
+      border-top: 16px solid transparent;
+      border-bottom: 16px solid transparent;
+      border-right: 24px solid #16161a;
     }
     .sheet-head {
       display: flex;
@@ -2292,15 +2307,22 @@ export class FruityWeatherCard extends LitElement {
      * keeps reserving its own height — that is what stops the sheet resizing
      * as a finger crosses the curve.
      */
-    .sheet-readout { transform: translateX(0); }
-    /* Shrink-wrapped while scrubbing so its width IS its content width — a
-       full-width block cannot be slid under the cursor, it would only centre
-       its own text in the sheet. Layout is otherwise untouched: value row on
-       top, caption beneath, exactly as at rest. */
-    .sheet-readout.scrubbing {
+    /*
+     * inline-block in BOTH states, never only while scrubbing. Two reasons:
+     * its width must equal its content width or there is nothing to slide
+     * under the cursor, and — the subtle one — inline-block establishes a block
+     * formatting context, which CONTAINS the child's margin-top instead of
+     * letting it collapse out. Switching display between states therefore
+     * changed the sheet's height by that margin, and _positionSheet re-clamped
+     * the top, so the whole sheet jumped every time a pointer touched the
+     * curve. Same box model in both states, no jump.
+     */
+    .sheet-readout {
       display: inline-block;
-      will-change: transform;
+      vertical-align: top;
+      transform: translateX(0);
     }
+    .sheet-readout.scrubbing { will-change: transform; }
     .scrub-temp { font-size: 34px; font-weight: 500; letter-spacing: -0.5px; }
     .sheet-hilo.scrubbing { display: flex; align-items: center; }
     .sheet-hilo.scrubbing .sheet-cond { margin-left: 0; margin-right: 2px; }

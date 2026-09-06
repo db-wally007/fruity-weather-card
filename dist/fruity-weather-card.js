@@ -263,7 +263,7 @@ j.elementStyles = [], j.shadowRootOptions = { mode: "open" }, j[K("elementProper
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const At = globalThis, Mt = (e) => e, ot = At.trustedTypes, $t = ot ? ot.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, Lt = "$lit$", R = `lit$${Math.random().toFixed(9).slice(2)}$`, Nt = "?" + R, je = `<${Nt}>`, U = document, G = () => U.createComment(""), W = (e) => e === null || typeof e != "object" && typeof e != "function", ft = Array.isArray, Le = (e) => ft(e) || typeof e?.[Symbol.iterator] == "function", dt = `[ 	
+const At = globalThis, Mt = (e) => e, ot = At.trustedTypes, $t = ot ? ot.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, Lt = "$lit$", R = `lit$${Math.random().toFixed(9).slice(2)}$`, Nt = "?" + R, je = `<${Nt}>`, U = document, W = () => U.createComment(""), G = (e) => e === null || typeof e != "object" && typeof e != "function", ft = Array.isArray, Le = (e) => ft(e) || typeof e?.[Symbol.iterator] == "function", dt = `[ 	
 \f\r]`, V = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Dt = /-->/g, Rt = />/g, I = RegExp(`>|${dt}(?:([^\\s"'>=/]+)(${dt}*=${dt}*(?:[^ 	
 \f\r"'\`<>=]|("|')|))|$)`, "g"), It = /'/g, Tt = /"/g, Ft = /^(?:script|style|textarea|title)$/i, Xt = (e) => (t, ...i) => ({ _$litType$: e, strings: t, values: i }), m = Xt(1), T = Xt(2), N = Symbol.for("lit-noChange"), w = Symbol.for("lit-nothing"), Ht = /* @__PURE__ */ new WeakMap(), P = U.createTreeWalker(U, 129);
 function Yt(e, t) {
@@ -302,8 +302,8 @@ class Z {
           const h = a.textContent.split(R), d = h.length - 1;
           if (d > 0) {
             a.textContent = ot ? ot.emptyScript : "";
-            for (let g = 0; g < d; g++) a.append(h[g], G()), P.nextNode(), l.push({ type: 2, index: ++o });
-            a.append(h[d], G());
+            for (let g = 0; g < d; g++) a.append(h[g], W()), P.nextNode(), l.push({ type: 2, index: ++o });
+            a.append(h[d], W());
           }
         }
       } else if (a.nodeType === 8) if (a.data === Nt) l.push({ type: 2, index: o });
@@ -322,7 +322,7 @@ class Z {
 function F(e, t, i = e, s) {
   if (t === N) return t;
   let a = s !== void 0 ? i._$Co?.[s] : i._$Cl;
-  const o = W(t) ? void 0 : t._$litDirective$;
+  const o = G(t) ? void 0 : t._$litDirective$;
   return a?.constructor !== o && (a?._$AO?.(!1), o === void 0 ? a = void 0 : (a = new o(e), a._$AT(e, i, s)), s !== void 0 ? (i._$Co ??= [])[s] = a : i._$Cl = a), a !== void 0 && (t = F(e, a._$AS(e, t.values), a, s)), t;
 }
 class Fe {
@@ -372,7 +372,7 @@ class tt {
     return this._$AB;
   }
   _$AI(t, i = this) {
-    t = F(this, t, i), W(t) ? t === w || t == null || t === "" ? (this._$AH !== w && this._$AR(), this._$AH = w) : t !== this._$AH && t !== N && this._(t) : t._$litType$ !== void 0 ? this.$(t) : t.nodeType !== void 0 ? this.T(t) : Le(t) ? this.k(t) : this._(t);
+    t = F(this, t, i), G(t) ? t === w || t == null || t === "" ? (this._$AH !== w && this._$AR(), this._$AH = w) : t !== this._$AH && t !== N && this._(t) : t._$litType$ !== void 0 ? this.$(t) : t.nodeType !== void 0 ? this.T(t) : Le(t) ? this.k(t) : this._(t);
   }
   O(t) {
     return this._$AA.parentNode.insertBefore(t, this._$AB);
@@ -381,7 +381,7 @@ class tt {
     this._$AH !== t && (this._$AR(), this._$AH = this.O(t));
   }
   _(t) {
-    this._$AH !== w && W(this._$AH) ? this._$AA.nextSibling.data = t : this.T(U.createTextNode(t)), this._$AH = t;
+    this._$AH !== w && G(this._$AH) ? this._$AA.nextSibling.data = t : this.T(U.createTextNode(t)), this._$AH = t;
   }
   $(t) {
     const { values: i, _$litType$: s } = t, a = typeof s == "number" ? this._$AC(t) : (s.el === void 0 && (s.el = Z.createElement(Yt(s.h, s.h[0]), this.options)), s);
@@ -399,7 +399,7 @@ class tt {
     ft(this._$AH) || (this._$AH = [], this._$AR());
     const i = this._$AH;
     let s, a = 0;
-    for (const o of t) a === i.length ? i.push(s = new tt(this.O(G()), this.O(G()), this, this.options)) : s = i[a], s._$AI(o), a++;
+    for (const o of t) a === i.length ? i.push(s = new tt(this.O(W()), this.O(W()), this, this.options)) : s = i[a], s._$AI(o), a++;
     a < i.length && (this._$AR(s && s._$AB.nextSibling, a), i.length = a);
   }
   _$AR(t = this._$AA.nextSibling, i) {
@@ -425,11 +425,11 @@ class lt {
   _$AI(t, i = this, s, a) {
     const o = this.strings;
     let r = !1;
-    if (o === void 0) t = F(this, t, i, 0), r = !W(t) || t !== this._$AH && t !== N, r && (this._$AH = t);
+    if (o === void 0) t = F(this, t, i, 0), r = !G(t) || t !== this._$AH && t !== N, r && (this._$AH = t);
     else {
       const n = t;
       let l, c;
-      for (t = o[0], l = 0; l < o.length - 1; l++) c = F(this, n[s + l], i, l), c === N && (c = this._$AH[l]), r ||= !W(c) || c !== this._$AH[l], c === w ? t = w : t !== w && (t += (c ?? "") + o[l + 1]), this._$AH[l] = c;
+      for (t = o[0], l = 0; l < o.length - 1; l++) c = F(this, n[s + l], i, l), c === N && (c = this._$AH[l]), r ||= !G(c) || c !== this._$AH[l], c === w ? t = w : t !== w && (t += (c ?? "") + o[l + 1]), this._$AH[l] = c;
     }
     r && !a && this.j(t);
   }
@@ -484,7 +484,7 @@ const qe = (e, t, i) => {
   let a = s._$litPart$;
   if (a === void 0) {
     const o = i?.renderBefore ?? null;
-    s._$litPart$ = a = new tt(t.insertBefore(G(), o), o, void 0, i ?? {});
+    s._$litPart$ = a = new tt(t.insertBefore(W(), o), o, void 0, i ?? {});
   }
   return a._$AI(e), a;
 };
@@ -517,15 +517,15 @@ class q extends j {
   }
 }
 q._$litElement$ = !0, q.finalized = !0, mt.litElementHydrateSupport?.({ LitElement: q });
-const Ge = mt.litElementPolyfillSupport;
-Ge?.({ LitElement: q });
+const We = mt.litElementPolyfillSupport;
+We?.({ LitElement: q });
 (mt.litElementVersions ??= []).push("4.2.2");
 /**
  * @license
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const We = (e) => (t, i) => {
+const Ge = (e) => (t, i) => {
   i !== void 0 ? i.addInitializer(() => {
     customElements.define(e, t);
   }) : customElements.define(e, t);
@@ -760,16 +760,16 @@ function gi(e, t, i, s) {
   for (let a = 0; a < e.length; a++) s[a] = e[a] + (t[a] - e[a]) * i;
   return s;
 }
-const Gt = "fruity-weather-card:hourly-10d:v1", Wt = 60 * 60 * 1e3;
+const Wt = "fruity-weather-card:hourly-10d:v1", Gt = 60 * 60 * 1e3;
 function ui(e) {
   return e === 0 ? "sunny" : e === 1 || e === 2 ? "partlycloudy" : e === 3 ? "cloudy" : e === 45 || e === 48 ? "fog" : e >= 51 && e <= 57 ? "rainy" : e >= 61 && e <= 65 ? e >= 65 ? "pouring" : "rainy" : e === 66 || e === 67 ? "snowy-rainy" : e >= 71 && e <= 77 ? "snowy" : e >= 80 && e <= 82 ? e === 82 ? "pouring" : "rainy" : e === 85 || e === 86 ? "snowy" : e === 95 ? "lightning" : e === 96 || e === 99 ? "lightning-rainy" : "cloudy";
 }
 function Ai() {
   try {
-    const e = localStorage.getItem(Gt);
+    const e = localStorage.getItem(Wt);
     if (!e) return;
     const t = JSON.parse(e);
-    return !t?.fetchedAt || Date.now() - t.fetchedAt > Wt ? void 0 : { fetchedAt: t.fetchedAt, days: new Map(Object.entries(t.days)) };
+    return !t?.fetchedAt || Date.now() - t.fetchedAt > Gt ? void 0 : { fetchedAt: t.fetchedAt, days: new Map(Object.entries(t.days)) };
   } catch {
     return;
   }
@@ -777,7 +777,7 @@ function Ai() {
 function fi(e) {
   try {
     localStorage.setItem(
-      Gt,
+      Wt,
       JSON.stringify({ fetchedAt: e.fetchedAt, days: Object.fromEntries(e.days) })
     );
   } catch {
@@ -991,7 +991,7 @@ let y = class extends q {
    */
   async _ensureHourly(e = !1) {
     const t = this.hass?.config?.latitude, i = this.hass?.config?.longitude;
-    if (!(t === void 0 || i === void 0 || this._hourlyPending) && !(!e && this._hourlyDays && Date.now() - this._hourlyDays.fetchedAt < Wt)) {
+    if (!(t === void 0 || i === void 0 || this._hourlyPending) && !(!e && this._hourlyDays && Date.now() - this._hourlyDays.fetchedAt < Gt)) {
       this._hourlyPending = !0, this._hourlyError = !1;
       try {
         this._hourlyDays = await mi(t, i, e);
@@ -1961,7 +1961,7 @@ let y = class extends q {
   }
 };
 y.FRAME_SECONDS = 0.9;
-y.ARROW_W = 22;
+y.ARROW_W = 26;
 y.ZOOM_MIN = 8;
 y.ZOOM_MAX = 11;
 y.ZOOM_KEY = "fruity-weather-card:map-zoom";
@@ -2077,9 +2077,24 @@ y.styles = $e`
       width: 0;
       height: 0;
       transform: translateY(-50%);
-      border-top: 15px solid transparent;
-      border-bottom: 15px solid transparent;
-      border-right: 22px solid #16161a;
+      border-top: 18px solid transparent;
+      border-bottom: 18px solid transparent;
+      border-right: 26px solid rgba(255, 255, 255, 0.30);
+    }
+    /* A CSS triangle cannot carry a stroke, so the outline is a second triangle
+       behind it: the parent is the edge colour and this is the fill, inset so
+       the parent shows only along the two slanted sides. Without it the notch
+       is a black shape on a black sheet and reads as detached. */
+    .sheet-arrow::after {
+      content: '';
+      position: absolute;
+      top: -16px;
+      left: 2px;
+      width: 0;
+      height: 0;
+      border-top: 16px solid transparent;
+      border-bottom: 16px solid transparent;
+      border-right: 24px solid #16161a;
     }
     .sheet-head {
       display: flex;
@@ -2255,15 +2270,22 @@ y.styles = $e`
      * keeps reserving its own height — that is what stops the sheet resizing
      * as a finger crosses the curve.
      */
-    .sheet-readout { transform: translateX(0); }
-    /* Shrink-wrapped while scrubbing so its width IS its content width — a
-       full-width block cannot be slid under the cursor, it would only centre
-       its own text in the sheet. Layout is otherwise untouched: value row on
-       top, caption beneath, exactly as at rest. */
-    .sheet-readout.scrubbing {
+    /*
+     * inline-block in BOTH states, never only while scrubbing. Two reasons:
+     * its width must equal its content width or there is nothing to slide
+     * under the cursor, and — the subtle one — inline-block establishes a block
+     * formatting context, which CONTAINS the child's margin-top instead of
+     * letting it collapse out. Switching display between states therefore
+     * changed the sheet's height by that margin, and _positionSheet re-clamped
+     * the top, so the whole sheet jumped every time a pointer touched the
+     * curve. Same box model in both states, no jump.
+     */
+    .sheet-readout {
       display: inline-block;
-      will-change: transform;
+      vertical-align: top;
+      transform: translateX(0);
     }
+    .sheet-readout.scrubbing { will-change: transform; }
     .scrub-temp { font-size: 34px; font-weight: 500; letter-spacing: -0.5px; }
     .sheet-hilo.scrubbing { display: flex; align-items: center; }
     .sheet-hilo.scrubbing .sheet-cond { margin-left: 0; margin-right: 2px; }
@@ -3171,7 +3193,7 @@ S([
   E()
 ], y.prototype, "_mapZoom", 2);
 y = S([
-  We("fruity-weather-card")
+  Ge("fruity-weather-card")
 ], y);
 window.customCards = window.customCards || [];
 window.customCards.push({
