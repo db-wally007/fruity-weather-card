@@ -87,6 +87,11 @@ npm run build         # vite build -> dist/
 
 `dist/` is committed. **Rebuild and commit it with any source change**, or installs ship stale code.
 
+**CI verifies the build; it must never commit `dist/`.** It used to, and the two fought: the
+runner's esbuild reflows the minified output by ~430 lines per push with no functional change,
+so every source push produced a spurious dist commit that then rejected the next local push. The
+committed bundle is deliberately the one running on the live instance.
+
 Vite forces **legacy** TypeScript decorators (`experimentalDecorators` + `useDefineForClassFields:
 false`). Lit 3's decorators break at runtime ("Configuration error") if esbuild compiles them as
 TC39 standard decorators. Do not remove that `tsconfigRaw` block.

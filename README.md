@@ -234,8 +234,9 @@ npm run typecheck
 npm run build
 ```
 
-`dist/` is committed so HACS installs without a build step; CI rebuilds it on every push that
-touches the source.
+`dist/` is committed so HACS installs without a build step, and the committed bundle is the one
+actually running on the author's Home Assistant. Rebuild and commit it alongside any source
+change; CI verifies the build but deliberately does not commit it.
 
 ## Licence
 

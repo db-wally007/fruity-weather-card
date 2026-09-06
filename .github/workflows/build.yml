@@ -1,21 +1,18 @@
 name: Build
 
-# dist/ is committed so the repo installs through HACS with no build step, but
-# the bundle is produced HERE rather than by hand: a minified file is not
-# something a human (or an agent) should be transcribing into a commit.
+# VERIFY ONLY — this workflow must not commit dist/.
+#
+# The checkout that produces dist/ is also the copy Home Assistant serves, so
+# the committed bundle is deliberately the one actually running. When CI also
+# rebuilt and committed it, the two fought: a different esbuild version on the
+# runner reflows the minified output by several hundred lines on every push,
+# for no functional change. So CI proves the source compiles and builds, and
+# the author commits the bundle.
 on:
   push:
     branches: [main]
-    paths:
-      - 'src/**'
-      - 'package.json'
-      - 'tsconfig.json'
-      - 'vite.config.ts'
-      - '.github/workflows/build.yml'
+  pull_request:
   workflow_dispatch:
-
-permissions:
-  contents: write
 
 jobs:
   build:
@@ -27,21 +24,19 @@ jobs:
         with:
           node-version: '20'
 
-      # No lockfile is committed, so `npm install` rather than `npm ci`.
-      - run: npm install
+      - run: npm ci
 
       - run: npm run typecheck
 
       - run: npm run build
 
-      - name: Commit dist if it changed
+      - name: Warn if the committed bundle is stale
         run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add dist
-          if git diff --cached --quiet; then
-            echo "dist unchanged"
+          if git diff --quiet -- dist; then
+            echo "dist/ matches a fresh build of the source."
           else
-            git commit -m "Build dist from ${GITHUB_SHA::7}"
-            git push
+            echo "::warning::dist/ differs from a fresh build. Some of that is"
+            echo "::warning::esbuild-version churn; if you changed src/, rebuild"
+            echo "::warning::locally with 'npm run build' and commit the result."
+            git diff --stat -- dist
           fi
