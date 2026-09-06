@@ -1,0 +1,64 @@
+###############################################################################
+# Weather Today — High / Low from the met.no daily forecast
+###############################################################################
+#
+# Purpose: expose today's forecast high and low as plain numeric sensors so
+#          dashboard cards can read them straight from `hass.states` — Bubble
+#          Card `styles:` templates, badges, mini-graphs. A modern HA weather
+#          entity carries NO `forecast` attribute; the daily forecast only
+#          arrives over the websocket via `weather.get_forecasts`, which a
+#          front-end template cannot call.
+#
+# Why read the forecast rather than a provider's own "today high" sensor: some
+#          integrations (wundergroundpws among them) null their daypart values
+#          once the period is mostly past, so the sensor goes 'unknown' partway
+#          through the day. Deriving both figures from the same weather entity
+#          the card uses also guarantees the launcher button and the card can
+#          never disagree with each other.
+#
+# forecast[0] is today: met.no stamps each daily entry at 10:00 UTC, so the
+# first element stays "today" until midnight local.
+#
+# Triggers: HA start, every 30 min (met.no polls hourly — this is a safety
+#           net), 00:00:30 for a clean day rollover, and template.reload.
+###############################################################################
+
+template:
+  - trigger:
+      - platform: homeassistant
+        event: start
+      - platform: time_pattern
+        minutes: "/30"
+      - platform: time
+        at: "00:00:30"
+      - platform: event
+        event_type: event_template_reloaded
+    action:
+      - action: weather.get_forecasts
+        target:
+          entity_id: weather.forecast_home
+        data:
+          type: daily
+        response_variable: daily
+    sensor:
+      - name: Weather Today High
+        unique_id: weather_today_high
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state: >
+          {{ daily['weather.forecast_home'].forecast[0].temperature | round(0) }}
+        availability: >
+          {{ daily is defined
+             and daily.get('weather.forecast_home', {}).get('forecast', []) | count > 0
+             and daily['weather.forecast_home'].forecast[0].temperature is not none }}
+
+      - name: Weather Today Low
+        unique_id: weather_today_low
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state: >
+          {{ daily['weather.forecast_home'].forecast[0].templow | round(0) }}
+        availability: >
+          {{ daily is defined
+             and daily.get('weather.forecast_home', {}).get('forecast', []) | count > 0
+             and daily['weather.forecast_home'].forecast[0].templow is not none }}

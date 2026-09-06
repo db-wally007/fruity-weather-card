@@ -1,0 +1,29 @@
+{
+  "name": "fruity-weather-card",
+  "version": "0.1.0",
+  "description": "Home Assistant Lovelace card: an iOS-style forecast card (hero, 24h strip, daily list, detail tiles)",
+  "type": "module",
+  "private": true,
+  "main": "dist/fruity-weather-card.js",
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "home-assistant",
+    "lovelace",
+    "weather",
+    "forecast",
+    "card"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "lit": "^3.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.4.0",
+    "vite": "^5.2.0"
+  }
+}

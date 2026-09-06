@@ -1,0 +1,47 @@
+name: Build
+
+# dist/ is committed so the repo installs through HACS with no build step, but
+# the bundle is produced HERE rather than by hand: a minified file is not
+# something a human (or an agent) should be transcribing into a commit.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'tsconfig.json'
+      - 'vite.config.ts'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # No lockfile is committed, so `npm install` rather than `npm ci`.
+      - run: npm install
+
+      - run: npm run typecheck
+
+      - run: npm run build
+
+      - name: Commit dist if it changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dist
+          if git diff --cached --quiet; then
+            echo "dist unchanged"
+          else
+            git commit -m "Build dist from ${GITHUB_SHA::7}"
+            git push
+          fi

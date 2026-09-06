@@ -1,0 +1,159 @@
+type: custom:bubble-card
+card_type: button
+button_type: name
+entity: sensor.outdoor_temperature
+name: Weather Forecast
+show_name: true
+show_state: false
+show_icon: false
+show_last_changed: false
+show_last_updated: false
+show_attribute: false
+scrolling_effect: false
+rows: 1.905
+tap_action:
+  action: navigate
+  navigation_path: "#weather-popup"
+button_action:
+  tap_action:
+    action: navigate
+    navigation_path: "#weather-popup"
+sub_button:
+  main: []
+  bottom: []
+modules:
+  - custom_coloring_module
+custom_coloring_module:
+  default_configuration:
+    icon_background:
+      color_preset: white
+      color_mode: preset
+      opacity: 0
+    card_text:
+      color_preset: white
+      color_mode: preset
+      opacity: 100
+    state_text:
+      color_preset: white
+      color_mode: preset
+      opacity: 100
+styles: |-
+  ${(() => {
+    const w = hass.states['weather.forecast_home'];
+    const s = w ? w.state : '';
+    const sun = hass.states['sun.sun'];
+    const night = sun ? sun.state === 'below_horizon' : false;
+
+    // Scene artwork: one asset per HA condition, with a separate night variant
+    // for every condition that HA reports identically day and night.
+    const dayNight = ['partlycloudy', 'cloudy', 'fog', 'rainy', 'pouring',
+                      'lightning', 'lightning-rainy', 'hail', 'snowy',
+                      'snowy-rainy', 'windy', 'windy-variant'];
+    // The sun entity decides day/night, never the condition string: met.no can
+    // sit on 'clear-night' for the better part of an hour after sunrise.
+    let bg = '';
+    if (s === 'clear-night' || s === 'sunny') bg = night ? 'clear-night' : 'sunny';
+    else if (dayNight.indexOf(s) !== -1) bg = s + (night ? '-night' : '');
+    else if (s === 'exceptional') bg = night ? 'cloudy-night' : 'cloudy';
+
+    const num = (id) => {
+      const e = hass.states[id];
+      const v = e ? parseFloat(e.state) : NaN;
+      return isNaN(v) ? null : Math.round(v);
+    };
+    const hi = num('sensor.weather_today_high');
+    const lo = num('sensor.weather_today_low');
+
+    // HA's friendly label for 'clear-night' is "Clear, night"; the pop-up card
+    // shows plain "Clear", so match it rather than surfacing the suffix.
+    let cond = (w && hass.formatEntityState) ? hass.formatEntityState(w) : '';
+    if (s === 'clear-night') cond = 'Clear';
+    const range = (hi !== null && lo !== null) ? hi + '° / ' + lo + '°' : '';
+    // Bubble collapses whitespace that follows a comma in the styles block, which
+    // would squash HA's "Lightning, rainy" to "Lightning,rainy". A zero-width space
+    // between the two breaks that match without showing anything itself.
+    const line2 = [cond, range].filter(Boolean).join(' · ').split(', ').join(',​ ');
+
+    return '.bubble-name-container::after { content: "' + line2.replace(/"/g, '') + '"; }'
+      + (bg ? '.bubble-button-card::after { background-image: linear-gradient(to bottom, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.52) 32%, rgba(0,0,0,0.20) 58%, rgba(0,0,0,0) 76%), url("/local/weather-bg/scene-' + bg + '.jpg?v=3"); }' : '');
+  })()}
+  ha-card {
+    --bubble-button-border-radius: 18px;
+    --bubble-main-background-color: rgba(0, 0, 0, 0.2);
+    backdrop-filter: none !important;
+    width: calc(100% - 8px);
+    height: 100% !important;
+    box-sizing: border-box !important;
+  }
+  ha-card > .card-content {
+    height: 100% !important;
+  }
+  .bubble-button-card-container, .bubble-button {
+    box-shadow: none !important;
+    border: 0.8px solid rgba(255, 255, 255, 0.18) !important;
+  }
+  .bubble-button-card-container {
+    height: 100% !important;
+    overflow: hidden !important;
+  }
+  .bubble-background {
+    border-radius: 18px !important;
+  }
+  .bubble-button-card {
+    height: 100% !important;
+    position: relative !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    border-radius: 18px !important;
+  }
+  .bubble-button-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background-repeat: no-repeat, no-repeat;
+    background-size: 100% 100%, cover;
+    background-position: center center, center center;
+    opacity: 0.8;
+  }
+  .bubble-icon-container {
+    display: none !important;
+  }
+  .bubble-name-container {
+    position: absolute !important;
+    left: 24px !important;
+    top: 19px !important;
+    right: 10px !important;
+    z-index: 2 !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    overflow: visible !important;
+  }
+  .bubble-name {
+    display: block !important;
+    font-size: 20px !important;
+    font-weight: 700 !important;
+    line-height: 30px !important;
+    color: #ffffff !important;
+    opacity: 1 !important;
+  }
+  .bubble-name-container::after {
+    display: block;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 20px;
+    color: rgba(255, 255, 255, 0.8);
+    /* padding pushes this element's clip box clear of the 28px text-shadow while
+       the matching negative margin keeps the text where it was; without it both
+       this box and .bubble-name-container slice the haze into a visible rectangle.
+       margin-top nets to 0 — for a gap of N px use calc(Npx - 34px). */
+    padding: 34px;
+    margin: -34px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-shadow: 0 0 14px rgba(0, 0, 0, 0.85), 0 0 28px rgba(0, 0, 0, 0.55);
+  }

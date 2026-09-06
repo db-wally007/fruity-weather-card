@@ -1,0 +1,18 @@
+node_modules/
+*.log
+.DS_Store
+
+# Generated per install by pyscript/fruity_weather.py, and it carries the home
+# coordinates in lat0/lon0. Never commit it.
+precip-grid.json
+
+# Condition glyphs are held back until their licence is established: the set in
+# use locally arrived without provenance, and this repository is MIT. The card
+# fetches them at RUNTIME (`../icons/<name>.png` relative to the bundle) and has
+# no fallback, so a checkout needs an icon set before it will render properly —
+# see the Icons section of the README.
+icons/
+
+# dist/ is NOT ignored: it is committed so the repo installs as a HACS custom
+# (Dashboard) repository with no build step. CI rebuilds it on every push that
+# touches the source — see .github/workflows/build.yml.
