@@ -463,7 +463,7 @@ export class FruityWeatherCard extends LitElement {
       if (this._config.map) this._watchMapVisible();
     }
     if (this._config?.map) { this._paintMap(); this._syncMapBar(); this._watchMapSize(); }
-    if (this._sheetDay !== null) this._positionSheet();
+    if (this._sheetDay !== null) { this._positionSheet(); this._positionReadout(); }
   }
 
   /* ------------------------------------------------ precipitation map ---- */
@@ -1445,24 +1445,26 @@ export class FruityWeatherCard extends LitElement {
     const s = this._hourScrub !== null ? hours[this._hourScrub] : undefined;
 
     return html`
-      ${s
-        ? html`
-            <div class="sheet-hilo scrubbing">
-              <img class="sheet-cond"
-                   src=${this._iconUrl(iconFor(s.condition, this._nightAt(new Date(s.time))))}
-                   alt=${s.condition} />
-              <span class="scrub-temp">${round(s.temp)}°</span>
-            </div>
-          `
-        : html`
-            <div class="sheet-hilo">
-              <span class="sheet-hi">${round(hi)}°</span><span class="sheet-lo">${round(lo)}°</span>
-              <img class="sheet-cond"
-                   src=${this._iconUrl(iconFor(day.condition, false))} alt="" />
-            </div>
-          `}
-      <div class="sheet-unit">
-        ${s ? this._clockLabel(new Date(s.time)) : (unit === '°F' ? 'Fahrenheit (°F)' : 'Celsius (°C)')}
+      <div class="sheet-readout ${s ? 'scrubbing' : ''}">
+        <div class="sheet-unit">
+          ${s ? this._clockLabel(new Date(s.time)) : (unit === '°F' ? 'Fahrenheit (°F)' : 'Celsius (°C)')}
+        </div>
+        ${s
+          ? html`
+              <div class="sheet-hilo scrubbing">
+                <img class="sheet-cond"
+                     src=${this._iconUrl(iconFor(s.condition, this._nightAt(new Date(s.time))))}
+                     alt=${s.condition} />
+                <span class="scrub-temp">${round(s.temp)}°</span>
+              </div>
+            `
+          : html`
+              <div class="sheet-hilo">
+                <span class="sheet-hi">${round(hi)}°</span><span class="sheet-lo">${round(lo)}°</span>
+                <img class="sheet-cond"
+                     src=${this._iconUrl(iconFor(day.condition, false))} alt="" />
+              </div>
+            `}
       </div>
 
       <div class="sheet-glyphs">
@@ -1494,16 +1496,14 @@ export class FruityWeatherCard extends LitElement {
             <polygon points=${area} fill="url(#sfill)" />
             <polyline points=${pts} vector-effect="non-scaling-stroke" />
           </svg>
-          ${s
-            ? nothing
-            : html`
-                <div class="smark hi" style=${`left:${x(hours.indexOf(hiAt))}%; top:${y(hi)}%`}>
-                  <span>H</span>
-                </div>
-                <div class="smark lo" style=${`left:${x(hours.indexOf(loAt))}%; top:${y(lo)}%`}>
-                  <span>L</span>
-                </div>
-              `}
+          <div class="smark hi ${s ? 'muted' : ''}"
+               style=${`left:${x(hours.indexOf(hiAt))}%; top:${y(hi)}%`}>
+            <span>H</span>
+          </div>
+          <div class="smark lo ${s ? 'muted' : ''}"
+               style=${`left:${x(hours.indexOf(loAt))}%; top:${y(lo)}%`}>
+            <span>L</span>
+          </div>
           ${s
             ? html`
                 <div class="scrub-line" style=${`left:${x(this._hourScrub!)}%`}></div>
@@ -1523,6 +1523,40 @@ export class FruityWeatherCard extends LitElement {
           : nothing))}
       </div>
     `;
+  }
+
+  /**
+   * Slide the scrub readout so it sits over the line it describes, clamped to
+   * the sheet so it never hangs off an edge. Measured after render because it
+   * needs the readout's own width, which changes with the temperature's digits.
+   */
+  private _positionReadout(): void {
+    const readout = this.renderRoot.querySelector('.sheet-readout') as HTMLElement | null;
+    const plot = this.renderRoot.querySelector('.sheet-plot') as HTMLElement | null;
+    if (!readout) return;
+    if (this._hourScrub === null || !plot) {
+      readout.style.transform = 'translateX(0)';
+      return;
+    }
+    const sheet = this.renderRoot.querySelector('.sheet') as HTMLElement | null;
+    const n = this._hoursForDay(this._sheetDay ?? 0).length;
+    if (!sheet || n < 2) return;
+    const frac = this._hourScrub / (n - 1);
+
+    // Measure from rest: a transform still in place would offset the reading.
+    readout.style.transform = 'translateX(0)';
+    const r = readout.getBoundingClientRect();
+    const p = plot.getBoundingClientRect();
+    const sh = sheet.getBoundingClientRect();
+    const cs = getComputedStyle(sheet);
+    const padL = parseFloat(cs.paddingLeft) || 0;
+    const padR = parseFloat(cs.paddingRight) || 0;
+
+    const centre = p.left + frac * p.width;
+    const min = sh.left + padL - r.left;
+    const max = sh.right - padR - r.width - r.left;
+    const x = Math.min(Math.max(centre - r.width / 2 - r.left, min), Math.max(max, min));
+    readout.style.transform = `translateX(${Math.round(x)}px)`;
   }
 
   /** Nearest hour under the pointer, clamped to the series. */
@@ -2187,7 +2221,7 @@ export class FruityWeatherCard extends LitElement {
     .scurve polyline {
       fill: none;
       stroke: #f0a93b;
-      stroke-width: 2;
+      stroke-width: 3;
       stroke-linejoin: round;
       stroke-linecap: round;
     }
@@ -2243,16 +2277,41 @@ export class FruityWeatherCard extends LitElement {
       color: var(--fwc-dim);
     }
     /* Scrub readout — replaces the H/L block while a finger is on the curve. */
-    /* Same two-line block as the static state — big row then caption — so the
-       readout never changes the sheet's height as a finger moves across. */
+    /*
+     * The readout rides along under the cursor, as in the reference: caption
+     * over value, translated horizontally by script. A transform is used rather
+     * than a margin or an absolute position so it costs no layout and the block
+     * keeps reserving its own height — that is what stops the sheet resizing
+     * as a finger crosses the curve.
+     */
+    .sheet-readout { transform: translateX(0); }
+    /* Shrink-wrapped while scrubbing so its width IS its content width — a
+       full-width block cannot be slid under the cursor, it would just centre
+       its text in the sheet. */
+    .sheet-readout.scrubbing {
+      display: inline-block;
+      text-align: center;
+      will-change: transform;
+    }
+    .sheet-readout.scrubbing .sheet-hilo { justify-content: center; }
+    /* Caption sits ABOVE the value while scrubbing and below it at rest; the
+       source order is caption-first, so only the resting state reorders. */
+    .sheet-readout:not(.scrubbing) { display: flex; flex-direction: column-reverse; }
     .scrub-temp { font-size: 34px; font-weight: 500; letter-spacing: -0.5px; }
+    .sheet-hilo.scrubbing { display: flex; align-items: center; }
     .sheet-hilo.scrubbing .sheet-cond { margin-left: 0; margin-right: 2px; }
+    /* Dimmed rather than removed: the reference keeps H and L on the curve
+       while a finger is down, so the day's shape stays readable. */
+    .smark.muted { opacity: 0.45; }
+    /* Climbs out of the plot, past the glyph row, to meet the readout it is
+       driving — the plot sets no overflow, so the overhang paints. The offset
+       is the glyph row plus its margins, kept in the same terms as they are. */
     .scrub-line {
       position: absolute;
-      top: 0;
+      top: calc(-1 * (var(--fwc-icon) + 14px));
       bottom: 0;
       width: 0;
-      border-left: 1.5px solid #fff;
+      border-left: 2px solid #fff;
       pointer-events: none;
     }
     .scrub-dot {
