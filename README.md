@@ -16,8 +16,11 @@ strip, the range bars, the sun arc, the wind rose and the map are all drawn by t
 - **Daily list** — N days with a low→high range bar coloured by temperature.
 - **Detail tiles** — sunrise/sunset arc, wind rose, precipitation, feels-like, humidity. Each can
   read a real sensor rather than the forecast, and each can be given its own tap action.
+- **Day detail** — tap any row of the daily list for that day's hourly temperature curve, condition
+  glyphs, high and low, with a day picker to move between days.
 - **Precipitation map** — Open-Meteo's gridded forecast drawn over an Esri basemap, with a
   server-side cache so the API budget is spent once for the whole house rather than per browser.
+  It starts animating as soon as you expand it.
 
 ## Requirements
 
@@ -210,6 +213,25 @@ and falls back to `cloudy`.
 
 The hero applies its own scrim: the image sits at 80% opacity under a mask that eases to
 transparent toward the bottom, and the text carries a wide, soft shadow rather than a hard one.
+
+## Day detail
+
+Tapping a row of the daily list opens a sheet with that day's hourly temperature curve, a glyph
+per few hours, and the day's high and low.
+
+**The curve does not come from your weather entity.** Home Assistant serves whatever the
+integration publishes, and met.no publishes exactly **48 hourly entries** — today, tomorrow and a
+partial day after. Seven of the ten rows would have nothing to show. The sheet therefore fetches
+ten days of hourly temperature from Open-Meteo in a single request (240 points, one API call,
+cached for an hour in the browser).
+
+The consequence to know about: a row's high in the list comes from your weather entity, while the
+peak of its curve comes from Open-Meteo, so the two can differ by a degree or so. The sheet labels
+its **own** high and low from the curve it is drawing, so what is shown and what is labelled always
+agree with each other.
+
+Precipitation probability is deliberately absent — see the note in `hourly-source.ts`; it will
+arrive with the wider precipitation-chance work.
 
 ## Precipitation map
 

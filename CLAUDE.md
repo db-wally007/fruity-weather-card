@@ -20,6 +20,7 @@ for the font stack and the `--fwc-*` prefix for variables. "iOS-style" is the ac
 src/card.ts          the card: config, forecast subscriptions, hero, hourly strip, daily list,
                      tiles, sun arc, wind rose, all styles. Large and deliberately one file.
 src/precip-map.ts    the precipitation map tile: grid fetch/cache, heat field, Esri tiles, zoom.
+src/hourly-source.ts ten-day hourly temps + WMO codes from Open-Meteo, for the day-detail sheet.
 pyscript/fruity_weather.py   OPTIONAL shared cache for the map's Open-Meteo grid.
 backgrounds/         26 hero scenes + 26 launcher scenes, derived from Thyraz (MIT, see NOTICE).
 homeassistant/       the optional helper package and a launcher-button example.
@@ -71,6 +72,27 @@ overflow, so `text-overflow: ellipsis` still works.
 A `position: relative` sibling paints over a static sibling's background regardless of z-index
 order in the markup. When the hero artwork bled under the hourly panel, the fix was to make the
 panel positioned — not to reorder or restack.
+
+### The daily list and the day sheet use DIFFERENT providers, on purpose
+
+Measured 2026-09-06: `weather.get_forecasts(type: hourly)` on met.no returns exactly **48 entries**
+— today, tomorrow, and a partial day after. A ten-row list would therefore have hourly detail for
+three rows and nothing for seven, which is the entire point of the sheet. Open-Meteo returns all
+240 hours in one request, so the sheet uses that.
+
+The visible consequence: a list row's high comes from the HA weather entity, the peak of its curve
+from Open-Meteo, and they can differ by a degree or two. The sheet prints H/L computed **from the
+curve it is drawing** so its own numbers and picture never disagree. Do not "fix" that by copying
+the row's H/L onto the sheet — then the label would contradict the graph.
+
+Do not be tempted to synthesise hourly values for the missing days by interpolating a diurnal
+shape between the daily low and high. That invents data and presents it as forecast.
+
+### Autoplay on expand is not `_togglePlayback()`
+
+`_autoPlay()` exists because the toggle would PAUSE a map that is already running. Expanding also
+has to cope with the grid arriving *after* the open, so `_ensureGrid` starts playback too if the
+tile is already expanded. Both paths respect `prefers-reduced-motion`.
 
 ### Day/night comes from the sun, never the condition string
 

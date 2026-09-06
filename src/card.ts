@@ -26,6 +26,10 @@ import {
   LEGEND_GRADIENT, MAP_ATTRIBUTION, CACHE_TTL_MS,
   type PrecipGrid, type Viewport, type MapStyle,
 } from './precip-map.js';
+import {
+  fetchHourlyDays, localDateKey, HOURLY_TTL_MS,
+  type HourlyDays, type HourPoint,
+} from './hourly-source.js';
 
 /** The legend bar paints the same ramp the heat field uses. */
 const unsafeGradient = unsafeCSS(LEGEND_GRADIENT);
@@ -49,7 +53,7 @@ interface HassEntity {
 
 interface Hass {
   states: Record<string, HassEntity>;
-  locale?: { language?: string };
+  locale?: { language?: string; time_format?: string };
   config?: {
     unit_system?: Record<string, string>;
     latitude?: number;
@@ -350,6 +354,12 @@ export class FruityWeatherCard extends LitElement {
   @state() private _mapOpen = false;
   @state() private _mapFrame = 0;
   @state() private _mapPlaying = false;
+
+  /** Day-detail sheet: index into the rendered daily list, or null when shut. */
+  @state() private _sheetDay: number | null = null;
+  @state() private _hourlyDays?: HourlyDays;
+  @state() private _hourlyError = false;
+  private _hourlyPending = false;
   /** '12h' steps hourly through the forecast; '1h' steps 15-minutely. */
   @state() private _mapRange: '1h' | '12h' = '12h';
   /** The user's chosen zoom; undefined = the configured default. Survives
@@ -477,6 +487,12 @@ export class FruityWeatherCard extends LitElement {
       this._gridRetryAt = 0;
       this._mapT = 0;
       this._mapFrame = 0;
+      // The tile can be expanded before the grid lands — a cold cache takes a
+      // moment — so pick up the autoplay the open could not start.
+      if (this._mapOpen && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+        await this.updateComplete;
+        this._autoPlay();
+      }
     } catch (err) {
       this._gridBackoff = this._gridBackoff ? Math.min(this._gridBackoff * 2, 15 * 60_000) : 60_000;
       this._gridRetryAt = Date.now() + this._gridBackoff;
@@ -487,6 +503,45 @@ export class FruityWeatherCard extends LitElement {
     } finally {
       this._gridPending = false;
     }
+  }
+
+  // -- day-detail sheet ------------------------------------------------------
+
+  /**
+   * Ten days of hourly data, fetched lazily: nobody pays for it until a day is
+   * actually opened, and the module caches it for an hour across reloads.
+   */
+  private async _ensureHourly(force = false): Promise<void> {
+    const lat = this.hass?.config?.latitude;
+    const lon = this.hass?.config?.longitude;
+    if (lat === undefined || lon === undefined || this._hourlyPending) return;
+    if (!force && this._hourlyDays && Date.now() - this._hourlyDays.fetchedAt < HOURLY_TTL_MS) return;
+    this._hourlyPending = true;
+    this._hourlyError = false;
+    try {
+      this._hourlyDays = await fetchHourlyDays(lat, lon, force);
+    } catch (err) {
+      this._hourlyError = true;
+      console.warn('fruity-weather-card: hourly forecast failed', err);
+    } finally {
+      this._hourlyPending = false;
+    }
+  }
+
+  private _openDaySheet(index: number): void {
+    this._sheetDay = index;
+    void this._ensureHourly();
+  }
+
+  private _closeDaySheet(): void {
+    this._sheetDay = null;
+  }
+
+  /** Hours for the day at `index` of the daily list, or [] when unavailable. */
+  private _hoursForDay(index: number): HourPoint[] {
+    const day = this._daily[index];
+    if (!day || !this._hourlyDays) return [];
+    return this._hourlyDays.days.get(localDateKey(new Date(day.datetime))) ?? [];
   }
 
   private get _mapSeries(): { times: number[]; frames: Float32Array[] } {
@@ -569,6 +624,11 @@ export class FruityWeatherCard extends LitElement {
       // Zoom is deliberately NOT reset — see _zoom.
     }
     await this.updateComplete;
+    // Expanding IS the request to see it move — a still field asks the user to
+    // hunt for a play button to find out what the tile is even for. Held back
+    // only when the grid has not arrived yet, in which case _ensureGrid starts
+    // it, and when the platform asks for less motion.
+    if (this._mapOpen && !reduced) this._autoPlay();
     if (reduced) return;
 
     for (const el of movers) {
@@ -601,6 +661,20 @@ export class FruityWeatherCard extends LitElement {
     this._mapPlaying = true;
     this._mapLast = performance.now();
     this._mapRaf = requestAnimationFrame(this._advance);
+  }
+
+  /**
+   * Start the loop from the beginning if it is not already running and there is
+   * something to animate. Separate from _togglePlayback because that one is a
+   * toggle: called on an already-playing map it would PAUSE, which is the
+   * opposite of what expanding should do.
+   */
+  private _autoPlay(): void {
+    if (this._mapPlaying) return;
+    if (this._mapSeries.frames.length < 2) return;
+    this._mapT = 0;
+    this._mapFrame = 0;
+    this._togglePlayback();
   }
 
   /**
@@ -762,6 +836,13 @@ export class FruityWeatherCard extends LitElement {
   private _markPointer = (ev: PointerEvent): void => {
     this._pointerDownAt = { x: ev.clientX, y: ev.clientY };
   };
+
+  /** Shared with _tap: a drag that ends over a target is not a tap on it. */
+  private _movedSincePointer(ev: Event): boolean {
+    const p = this._pointerDownAt;
+    const e = ev as MouseEvent;
+    return !!p && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 8;
+  }
 
   /**
    * Hand-rolled rather than pulled from custom-card-helpers: the card has no
@@ -1006,6 +1087,7 @@ export class FruityWeatherCard extends LitElement {
           ${this._renderDaily()}
           ${this._renderTiles()}
         </div>
+        ${this._renderDaySheet()}
       </ha-card>
     `;
   }
@@ -1174,7 +1256,15 @@ export class FruityWeatherCard extends LitElement {
             ? ((nowTemp - min) / span) * 100
             : undefined;
           return html`
-            <div class="drow">
+            <div class="drow" tappable
+                 @pointerdown=${this._markPointer}
+                 @click=${(e: Event) => {
+                   // The panel may carry its own tap_action; a row tap is the
+                   // more specific intent, so it wins and does not bubble.
+                   e.stopPropagation();
+                   if (this._movedSincePointer(e)) return;
+                   this._openDaySheet(i);
+                 }}>
               <div class="dday">${day}</div>
               <img class="dicon" src=${this._iconUrl(iconFor(d.condition, i === 0 && this._isNight))} alt=${d.condition ?? ''} />
               <div class="dlo">${round(lo)}°</div>
@@ -1190,6 +1280,182 @@ export class FruityWeatherCard extends LitElement {
         })}
       </div>
     `;
+  }
+
+  /**
+   * The day-detail sheet: a day picker, that day's high and low, a row of
+   * condition glyphs and an hourly temperature curve.
+   *
+   * The H/L printed here come from the CURVE, not from the daily list row, so
+   * the numbers and the picture always agree. They can differ by a degree or
+   * two from the row because the row is the Home Assistant weather entity while
+   * the curve is Open-Meteo — see hourly-source.ts for why.
+   */
+  private _renderDaySheet(): TemplateResult | typeof nothing {
+    const index = this._sheetDay;
+    if (index === null) return nothing;
+    const days = this._daily.slice(0, this._config!.daily_days ?? 10);
+    const day = days[index];
+    if (!day) return nothing;
+
+    const lang = this.hass?.locale?.language ?? navigator.language;
+    const date = new Date(day.datetime);
+    const hours = this._hoursForDay(index);
+    const unit = this.hass?.config?.unit_system?.temperature ?? '°C';
+
+    return html`
+      <div class="sheet-wrap" @click=${this._closeDaySheet}>
+        <div class="sheet" @click=${(e: Event) => e.stopPropagation()}>
+          <div class="sheet-head">
+            <img class="sheet-head-icon"
+                 src=${this._iconUrl(iconFor(day.condition, false))} alt="" />
+            <span>Conditions</span>
+            <button class="sheet-close" title="Close" @click=${this._closeDaySheet}>
+              ${svg`<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+                <path d="M6 6 L18 18 M18 6 L6 18" /></svg>`}
+            </button>
+          </div>
+
+          <div class="sheet-strip">
+            ${days.map((d, i) => {
+              const dt = new Date(d.datetime);
+              return html`
+                <button class="sday ${i === index ? 'on' : ''}"
+                        @click=${() => this._openDaySheet(i)}>
+                  <span class="sday-w">${dt.toLocaleDateString(lang, { weekday: 'narrow' })}</span>
+                  <span class="sday-n">${dt.getDate()}</span>
+                </button>
+              `;
+            })}
+          </div>
+
+          <div class="sheet-nav">
+            <button class="snav" ?disabled=${index === 0}
+                    @click=${() => this._openDaySheet(index - 1)}>
+              ${svg`<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                <path d="M15 5 L8 12 L15 19" /></svg>`}
+            </button>
+            <div class="sheet-date">
+              ${date.toLocaleDateString(lang, {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+              })}
+            </div>
+            <button class="snav" ?disabled=${index >= days.length - 1}
+                    @click=${() => this._openDaySheet(index + 1)}>
+              ${svg`<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                <path d="M9 5 L16 12 L9 19" /></svg>`}
+            </button>
+          </div>
+
+          ${this._renderSheetBody(hours, unit, day)}
+        </div>
+      </div>
+    `;
+  }
+
+  private _renderSheetBody(
+    hours: HourPoint[],
+    unit: string,
+    day: ForecastItem,
+  ): TemplateResult {
+    if (this._hourlyPending && !hours.length) {
+      return html`<div class="sheet-note">Loading hourly forecast…</div>`;
+    }
+    if (this._hourlyError && !hours.length) {
+      return html`
+        <div class="sheet-note">
+          Hourly forecast unavailable.
+          <button class="sheet-retry" @click=${() => this._ensureHourly(true)}>Retry</button>
+        </div>
+      `;
+    }
+    if (!hours.length) {
+      return html`<div class="sheet-note">No hourly forecast for this day.</div>`;
+    }
+
+    const temps = hours.map((h) => h.temp);
+    const hi = Math.max(...temps);
+    const lo = Math.min(...temps);
+    const hiAt = hours[temps.indexOf(hi)];
+    const loAt = hours[temps.indexOf(lo)];
+
+    // Round the axis outward to whole 5s so the gridlines read as clean values,
+    // and keep a floor on the span or a flat day fills the whole box with noise.
+    const step = 5;
+    const axisLo = Math.floor(lo / step) * step;
+    const axisHi = Math.ceil(hi / step) * step;
+    const axisSpan = Math.max(axisHi - axisLo, step);
+    const ticks: number[] = [];
+    for (let v = axisHi; v >= axisLo - 0.001; v -= step) ticks.push(v);
+
+    const n = hours.length;
+    const x = (i: number) => (n > 1 ? (i / (n - 1)) * 100 : 50);
+    const y = (t: number) => ((axisHi - t) / axisSpan) * 100;
+    const pts = hours.map((h, i) => `${x(i)},${y(h.temp)}`).join(' ');
+    const area = `0,100 ${pts} 100,100`;
+
+    // One glyph per third hour: 24 across a pop-up column overlap badly.
+    const glyphStep = Math.max(1, Math.round(n / 8));
+
+    return html`
+      <div class="sheet-hilo">
+        <span class="sheet-hi">${round(hi)}°</span><span class="sheet-lo">${round(lo)}°</span>
+        <img class="sheet-cond"
+             src=${this._iconUrl(iconFor(day.condition, false))} alt="" />
+      </div>
+      <div class="sheet-unit">${unit === '°F' ? 'Fahrenheit (°F)' : 'Celsius (°C)'}</div>
+
+      <div class="sheet-glyphs">
+        ${hours.map((h, i) => (i % glyphStep === 0
+          ? html`<img class="sglyph" style=${`left:${x(i)}%`}
+                      src=${this._iconUrl(iconFor(h.condition, this._nightAt(new Date(h.time))))}
+                      alt=${h.condition} />`
+          : nothing))}
+      </div>
+
+      <div class="sheet-chart">
+        <div class="sheet-plot">
+          ${ticks.map((v) => html`
+            <div class="sgl" style=${`top:${y(v)}%`}></div>`)}
+          <svg class="scurve" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="sfill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#f5a623" stop-opacity="0.75" />
+                <stop offset="55%" stop-color="#57c8c8" stop-opacity="0.40" />
+                <stop offset="100%" stop-color="#3f7fb0" stop-opacity="0.18" />
+              </linearGradient>
+            </defs>
+            <polygon points=${area} fill="url(#sfill)" />
+            <polyline points=${pts} vector-effect="non-scaling-stroke" />
+          </svg>
+          <div class="smark hi" style=${`left:${x(hours.indexOf(hiAt))}%; top:${y(hi)}%`}>
+            <span>H</span>
+          </div>
+          <div class="smark lo" style=${`left:${x(hours.indexOf(loAt))}%; top:${y(lo)}%`}>
+            <span>L</span>
+          </div>
+        </div>
+        <div class="sheet-yaxis">
+          ${ticks.map((v) => html`<span style=${`top:${y(v)}%`}>${round(v)}°</span>`)}
+        </div>
+      </div>
+
+      <div class="sheet-xaxis">
+        ${hours.map((h, i) => (h.hour % 6 === 0
+          ? html`<span style=${`left:${x(i)}%`}>${this._hourLabel(h.hour)}</span>`
+          : nothing))}
+      </div>
+    `;
+  }
+
+  /** "12AM" / "6PM" style, or 24-hour when that is what the user has set. */
+  private _hourLabel(hour: number): string {
+    const tf = this.hass?.locale?.time_format;
+    const hour12 = tf === '12' ? true : tf === '24' ? false : undefined;
+    const lang = this.hass?.locale?.language ?? navigator.language;
+    return new Intl.DateTimeFormat(lang, { hour: 'numeric', hour12 })
+      .format(new Date(2000, 0, 1, hour))
+      .replace(/\s+/g, '');
   }
 
   /**
@@ -1669,6 +1935,212 @@ export class FruityWeatherCard extends LitElement {
     }
 
     .err { padding: 16px; color: var(--error-color, #ff6b6b); }
+
+    /* ---- day-detail sheet ---- */
+    /* Covers the card rather than the viewport: the card is often hosted in a
+       pop-up that owns the screen, and a second full-screen layer inside it
+       fights the host's own backdrop and scroll lock. */
+    .sheet-wrap {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      display: grid;
+      place-items: center;
+      padding: 14px;
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
+      border-radius: inherit;
+    }
+    .sheet {
+      width: min(560px, 100%);
+      max-height: 100%;
+      overflow: auto;
+      box-sizing: border-box;
+      padding: 14px 16px 16px;
+      border-radius: 18px;
+      background: #16161a;
+      border: 0.5px solid var(--fwc-hairline);
+      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+    }
+    .sheet-head {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .sheet-head-icon { width: 22px; height: 22px; object-fit: contain; }
+    .sheet-close {
+      margin-left: auto;
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      color: inherit;
+      background: rgba(255, 255, 255, 0.12);
+    }
+    .sheet-close svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+
+    .sheet-strip {
+      display: flex;
+      gap: 2px;
+      margin: 12px 0 4px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .sheet-strip::-webkit-scrollbar { display: none; }
+    .sday {
+      flex: 1 0 auto;
+      min-width: 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 2px 6px;
+      border: none;
+      background: none;
+      color: inherit;
+      cursor: pointer;
+      font: inherit;
+    }
+    .sday-w { font-size: 13px; font-weight: 600; color: var(--fwc-dim); }
+    .sday-n {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      font-size: 15px;
+      font-variant-numeric: tabular-nums;
+    }
+    .sday.on .sday-n { background: #fff; color: #16161a; font-weight: 600; }
+    .sday.on .sday-w { color: #4ea1ff; }
+
+    .sheet-nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-top: 8px;
+      border-top: 0.5px solid var(--fwc-hairline);
+    }
+    .sheet-date { flex: 1; text-align: center; font-size: 15px; font-weight: 500; }
+    .snav {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border: none;
+      border-radius: 9px;
+      cursor: pointer;
+      color: inherit;
+      background: rgba(255, 255, 255, 0.1);
+    }
+    .snav[disabled] { opacity: 0.3; cursor: default; }
+    .snav svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .sheet-hilo {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 14px;
+      font-size: 34px;
+      font-weight: 500;
+      letter-spacing: -0.5px;
+    }
+    .sheet-lo { color: var(--fwc-dim); }
+    .sheet-cond { width: 30px; height: 30px; object-fit: contain; margin-left: 6px; }
+    .sheet-unit { font-size: 13px; color: var(--fwc-dim); margin-top: 1px; }
+
+    .sheet-glyphs {
+      position: relative;
+      height: 22px;
+      margin: 12px 34px 2px 0;
+    }
+    .sglyph {
+      position: absolute;
+      transform: translateX(-50%);
+      width: 20px;
+      height: 20px;
+      object-fit: contain;
+    }
+    .sheet-chart { display: flex; height: 150px; }
+    .sheet-plot { position: relative; flex: 1 1 auto; }
+    .sgl {
+      position: absolute;
+      left: 0;
+      right: 0;
+      border-top: 0.5px solid rgba(255, 255, 255, 0.1);
+    }
+    .scurve { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+    .scurve polyline {
+      fill: none;
+      stroke: #f0a93b;
+      stroke-width: 2;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+    }
+    .smark {
+      position: absolute;
+      width: 9px;
+      height: 9px;
+      margin: -4.5px 0 0 -4.5px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);
+    }
+    .smark span {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--fwc-dim);
+    }
+    .smark.hi span { bottom: 13px; }
+    .smark.lo span { top: 13px; }
+    .sheet-yaxis { position: relative; width: 34px; flex: none; }
+    .sheet-yaxis span {
+      position: absolute;
+      right: 0;
+      transform: translateY(-50%);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      color: var(--fwc-dim);
+    }
+    .sheet-xaxis {
+      position: relative;
+      height: 18px;
+      margin: 6px 34px 0 0;
+    }
+    .sheet-xaxis span {
+      position: absolute;
+      transform: translateX(-50%);
+      font-size: 12px;
+      color: var(--fwc-dim);
+      white-space: nowrap;
+    }
+    .sheet-note {
+      padding: 26px 0 10px;
+      text-align: center;
+      font-size: 14px;
+      color: var(--fwc-dim);
+    }
+    .sheet-retry {
+      margin-left: 8px;
+      padding: 3px 10px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font: inherit;
+      color: inherit;
+      background: rgba(255, 255, 255, 0.14);
+    }
+    .drow[tappable] { cursor: pointer; }
+    .drow[tappable]:active { filter: brightness(1.12); }
 
     /* ---- hero ---- */
     /*
