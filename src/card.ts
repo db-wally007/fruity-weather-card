@@ -579,7 +579,9 @@ export class FruityWeatherCard extends LitElement {
       // left edge — so it is positioned against the sheet rather than within it.
       const y = Math.min(Math.max(this._sheetAnchor - top, 22), Math.max(h - 22, 22));
       arrow.style.top = `${top + y}px`;
-      arrow.style.left = `${sheet.offsetLeft - 10}px`;
+      // Butts against the sheet and reaches back across the column gap, so its
+      // tip lands a few pixels inside the daily list it is pointing at.
+      arrow.style.left = `${sheet.offsetLeft - FruityWeatherCard.ARROW_W}px`;
     }
   }
 
@@ -701,6 +703,9 @@ export class FruityWeatherCard extends LitElement {
 
   /** Seconds of wall clock per forecast frame while playing. */
   private static readonly FRAME_SECONDS = 0.9;
+
+  /** Day-sheet notch reach, in px. Must match border-right on .sheet-arrow. */
+  private static readonly ARROW_W = 22;
 
   private _togglePlayback(): void {
     if (this._mapPlaying) { this._stopPlayback(); return; }
@@ -2097,18 +2102,21 @@ export class FruityWeatherCard extends LitElement {
       border: 0.5px solid var(--fwc-hairline);
       box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
     }
-    /* The notch that ties the sheet to its row, as in the reference. Drawn as a
-       rotated square so the two visible edges carry the sheet's own border. */
+    /*
+     * The notch that ties the sheet to its row. A border triangle rather than a
+     * rotated square: a square's reach is bounded by its own side length, and
+     * this has to cross the 14px column gap AND bite into the daily list behind
+     * it to read as pointing at a row. ARROW_W below is that reach.
+     */
     .sheet-arrow {
       position: absolute;
       z-index: 1;
-      width: 20px;
-      height: 20px;
-      transform: translateY(-50%) rotate(45deg);
-      background: #16161a;
-      border-left: 1px solid rgba(255, 255, 255, 0.22);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.22);
-      border-bottom-left-radius: 4px;
+      width: 0;
+      height: 0;
+      transform: translateY(-50%);
+      border-top: 15px solid transparent;
+      border-bottom: 15px solid transparent;
+      border-right: 22px solid #16161a;
     }
     .sheet-head {
       display: flex;
