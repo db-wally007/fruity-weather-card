@@ -9,6 +9,10 @@
 - Ten-day hourly source (`src/hourly-source.ts`). Home Assistant's weather entity only carries as
   much hourly data as its integration publishes — met.no stops at 48 entries — which would have
   left seven of the ten rows with nothing to show. One Open-Meteo request covers all ten days.
+- Scrubbing the curve: drag across it for that hour's time, temperature and
+  condition; the day's high/low step aside while a finger is down and return on release.
+- The sheet is pinned beside the daily list, three tile columns wide, with a pointer aimed at the
+  row that opened it — so the row it describes stays visible next to it.
 
 ### Changed
 

@@ -357,6 +357,10 @@ export class FruityWeatherCard extends LitElement {
 
   /** Day-detail sheet: index into the rendered daily list, or null when shut. */
   @state() private _sheetDay: number | null = null;
+  /** Hour being scrubbed on the sheet's curve; null restores the H/L readout. */
+  @state() private _hourScrub: number | null = null;
+  /** Centre of the tapped daily row, relative to the card, for the pointer. */
+  private _sheetAnchor = 0;
   @state() private _hourlyDays?: HourlyDays;
   @state() private _hourlyError = false;
   private _hourlyPending = false;
@@ -459,6 +463,7 @@ export class FruityWeatherCard extends LitElement {
       if (this._config.map) this._watchMapVisible();
     }
     if (this._config?.map) { this._paintMap(); this._syncMapBar(); this._watchMapSize(); }
+    if (this._sheetDay !== null) this._positionSheet();
   }
 
   /* ------------------------------------------------ precipitation map ---- */
@@ -528,13 +533,54 @@ export class FruityWeatherCard extends LitElement {
     }
   }
 
-  private _openDaySheet(index: number): void {
+  /**
+   * `row` is the element tapped, so the sheet's pointer can be aimed at it. It
+   * is optional because the day strip and the arrows re-open the sheet without
+   * a row, and those should leave the pointer where it is.
+   */
+  private _openDaySheet(index: number, row?: HTMLElement): void {
+    if (row) {
+      const card = this.renderRoot.querySelector('ha-card');
+      if (card) {
+        const r = row.getBoundingClientRect();
+        this._sheetAnchor = r.top + r.height / 2 - card.getBoundingClientRect().top;
+      }
+    }
+    this._hourScrub = null;
     this._sheetDay = index;
     void this._ensureHourly();
   }
 
   private _closeDaySheet(): void {
     this._sheetDay = null;
+    this._hourScrub = null;
+  }
+
+  /**
+   * Aim the sheet at the row that opened it. Done after render because it needs
+   * the sheet's measured height: it is centred on the row, then clamped inside
+   * the card, and the pointer slides along the sheet's edge to stay on the row
+   * whatever the clamp did.
+   */
+  private _positionSheet(): void {
+    const card = this.renderRoot.querySelector('ha-card') as HTMLElement | null;
+    const sheet = this.renderRoot.querySelector('.sheet') as HTMLElement | null;
+    const arrow = this.renderRoot.querySelector('.sheet-arrow') as HTMLElement | null;
+    if (!card || !sheet) return;
+    const cardH = card.getBoundingClientRect().height;
+    const h = sheet.getBoundingClientRect().height;
+    const MARGIN = 10;
+    const top = Math.min(Math.max(this._sheetAnchor - h / 2, MARGIN), Math.max(cardH - h - MARGIN, MARGIN));
+    sheet.style.top = `${top}px`;
+    if (arrow) {
+      // Keep the pointer off the rounded corners even when the clamp has moved
+      // the sheet well away from the row. It lives OUTSIDE the sheet because
+      // the sheet scrolls, and overflow:auto would clip a child hanging off its
+      // left edge — so it is positioned against the sheet rather than within it.
+      const y = Math.min(Math.max(this._sheetAnchor - top, 22), Math.max(h - 22, 22));
+      arrow.style.top = `${top + y}px`;
+      arrow.style.left = `${sheet.offsetLeft - 6}px`;
+    }
   }
 
   /** Hours for the day at `index` of the daily list, or [] when unavailable. */
@@ -1263,7 +1309,7 @@ export class FruityWeatherCard extends LitElement {
                    // more specific intent, so it wins and does not bubble.
                    e.stopPropagation();
                    if (this._movedSincePointer(e)) return;
-                   this._openDaySheet(i);
+                   this._openDaySheet(i, e.currentTarget as HTMLElement);
                  }}>
               <div class="dday">${day}</div>
               <img class="dicon" src=${this._iconUrl(iconFor(d.condition, i === 0 && this._isNight))} alt=${d.condition ?? ''} />
@@ -1305,15 +1351,12 @@ export class FruityWeatherCard extends LitElement {
 
     return html`
       <div class="sheet-wrap" @click=${this._closeDaySheet}>
+        <div class="sheet-arrow"></div>
         <div class="sheet" @click=${(e: Event) => e.stopPropagation()}>
           <div class="sheet-head">
             <img class="sheet-head-icon"
                  src=${this._iconUrl(iconFor(day.condition, false))} alt="" />
             <span>Conditions</span>
-            <button class="sheet-close" title="Close" @click=${this._closeDaySheet}>
-              ${svg`<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
-                <path d="M6 6 L18 18 M18 6 L6 18" /></svg>`}
-            </button>
           </div>
 
           <div class="sheet-strip">
@@ -1397,24 +1440,48 @@ export class FruityWeatherCard extends LitElement {
     // One glyph per third hour: 24 across a pop-up column overlap badly.
     const glyphStep = Math.max(1, Math.round(n / 8));
 
+    // While the curve is being scrubbed the readout follows the finger, so the
+    // day's H/L step aside rather than competing with it.
+    const s = this._hourScrub !== null ? hours[this._hourScrub] : undefined;
+
     return html`
-      <div class="sheet-hilo">
-        <span class="sheet-hi">${round(hi)}°</span><span class="sheet-lo">${round(lo)}°</span>
-        <img class="sheet-cond"
-             src=${this._iconUrl(iconFor(day.condition, false))} alt="" />
-      </div>
+      ${s
+        ? html`
+            <div class="sheet-hilo scrubbing">
+              <div class="scrub-time">${this._clockLabel(new Date(s.time))}</div>
+              <div class="scrub-row">
+                <img class="sheet-cond"
+                     src=${this._iconUrl(iconFor(s.condition, this._nightAt(new Date(s.time))))}
+                     alt=${s.condition} />
+                <span class="scrub-temp">${round(s.temp)}°</span>
+              </div>
+            </div>
+          `
+        : html`
+            <div class="sheet-hilo">
+              <span class="sheet-hi">${round(hi)}°</span><span class="sheet-lo">${round(lo)}°</span>
+              <img class="sheet-cond"
+                   src=${this._iconUrl(iconFor(day.condition, false))} alt="" />
+            </div>
+          `}
       <div class="sheet-unit">${unit === '°F' ? 'Fahrenheit (°F)' : 'Celsius (°C)'}</div>
 
       <div class="sheet-glyphs">
         ${hours.map((h, i) => (i % glyphStep === 0
-          ? html`<img class="sglyph" style=${`left:${x(i)}%`}
+          ? html`<img class="sglyph ${i === 0 ? 'first' : i === n - 1 ? 'last' : ''}"
+                      style=${`left:${x(i)}%`}
                       src=${this._iconUrl(iconFor(h.condition, this._nightAt(new Date(h.time))))}
                       alt=${h.condition} />`
           : nothing))}
       </div>
 
       <div class="sheet-chart">
-        <div class="sheet-plot">
+        <div class="sheet-plot"
+             @pointerdown=${(e: PointerEvent) => this._scrubAt(e, n)}
+             @pointermove=${(e: PointerEvent) => { if (e.buttons || e.pointerType !== 'mouse') this._scrubAt(e, n); }}
+             @pointerup=${() => { this._hourScrub = null; }}
+             @pointercancel=${() => { this._hourScrub = null; }}
+             @pointerleave=${() => { this._hourScrub = null; }}>
           ${ticks.map((v) => html`
             <div class="sgl" style=${`top:${y(v)}%`}></div>`)}
           <svg class="scurve" viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -1428,12 +1495,22 @@ export class FruityWeatherCard extends LitElement {
             <polygon points=${area} fill="url(#sfill)" />
             <polyline points=${pts} vector-effect="non-scaling-stroke" />
           </svg>
-          <div class="smark hi" style=${`left:${x(hours.indexOf(hiAt))}%; top:${y(hi)}%`}>
-            <span>H</span>
-          </div>
-          <div class="smark lo" style=${`left:${x(hours.indexOf(loAt))}%; top:${y(lo)}%`}>
-            <span>L</span>
-          </div>
+          ${s
+            ? nothing
+            : html`
+                <div class="smark hi" style=${`left:${x(hours.indexOf(hiAt))}%; top:${y(hi)}%`}>
+                  <span>H</span>
+                </div>
+                <div class="smark lo" style=${`left:${x(hours.indexOf(loAt))}%; top:${y(lo)}%`}>
+                  <span>L</span>
+                </div>
+              `}
+          ${s
+            ? html`
+                <div class="scrub-line" style=${`left:${x(this._hourScrub!)}%`}></div>
+                <div class="scrub-dot" style=${`left:${x(this._hourScrub!)}%; top:${y(s.temp)}%`}></div>
+              `
+            : nothing}
         </div>
         <div class="sheet-yaxis">
           ${ticks.map((v) => html`<span style=${`top:${y(v)}%`}>${round(v)}°</span>`)}
@@ -1442,10 +1519,28 @@ export class FruityWeatherCard extends LitElement {
 
       <div class="sheet-xaxis">
         ${hours.map((h, i) => (h.hour % 6 === 0
-          ? html`<span style=${`left:${x(i)}%`}>${this._hourLabel(h.hour)}</span>`
+          ? html`<span class=${i === 0 ? 'first' : i === n - 1 ? 'last' : ''}
+                       style=${`left:${x(i)}%`}>${this._hourLabel(h.hour)}</span>`
           : nothing))}
       </div>
     `;
+  }
+
+  /** Nearest hour under the pointer, clamped to the series. */
+  private _scrubAt(ev: PointerEvent, n: number): void {
+    const box = (ev.currentTarget as HTMLElement).getBoundingClientRect();
+    if (!box.width || n < 1) return;
+    const i = Math.round(((ev.clientX - box.left) / box.width) * (n - 1));
+    const clamped = Math.min(Math.max(i, 0), n - 1);
+    if (clamped !== this._hourScrub) this._hourScrub = clamped;
+  }
+
+  /** "2:04 PM" in the user's own clock format. */
+  private _clockLabel(d: Date): string {
+    const tf = this.hass?.locale?.time_format;
+    const hour12 = tf === '12' ? true : tf === '24' ? false : undefined;
+    const lang = this.hass?.locale?.language ?? navigator.language;
+    return new Intl.DateTimeFormat(lang, { hour: 'numeric', minute: '2-digit', hour12 }).format(d);
   }
 
   /** "12AM" / "6PM" style, or 24-hour when that is what the user has set. */
@@ -1940,50 +2035,57 @@ export class FruityWeatherCard extends LitElement {
     /* Covers the card rather than the viewport: the card is often hosted in a
        pop-up that owns the screen, and a second full-screen layer inside it
        fights the host's own backdrop and scroll lock. */
+    /* A transparent click-catcher over the card. No dimming: the reference
+       leaves the card behind it legible, and the sheet reads as attached to the
+       row rather than as a modal over everything. */
     .sheet-wrap {
       position: absolute;
       inset: 0;
       z-index: 20;
-      display: grid;
-      place-items: center;
-      padding: 14px;
-      background: rgba(0, 0, 0, 0.45);
-      backdrop-filter: blur(3px);
-      -webkit-backdrop-filter: blur(3px);
       border-radius: inherit;
     }
+    /*
+     * Three tile columns wide, parked in the tile area so it never covers the
+     * daily list it was launched from — the whole point is to compare the sheet
+     * against the row still visible beside it. Its top offset is set from
+     * script, which aims it at that row.
+     */
     .sheet {
-      width: min(560px, 100%);
-      max-height: 100%;
+      position: absolute;
+      left: calc(2 * var(--fwc-tile) + 2 * var(--fwc-gap));
+      width: calc(3 * var(--fwc-tile) + 2 * var(--fwc-gap));
+      max-width: calc(100% - 2 * var(--fwc-gap));
+      max-height: calc(100% - 20px);
       overflow: auto;
       box-sizing: border-box;
-      padding: 14px 16px 16px;
+      padding: 12px 14px 14px;
       border-radius: 18px;
       background: #16161a;
       border: 0.5px solid var(--fwc-hairline);
       box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
     }
+    /* The notch that ties the sheet to its row, as in the reference. Drawn as a
+       rotated square so the two visible edges carry the sheet's own border. */
+    .sheet-arrow {
+      position: absolute;
+      z-index: 1;
+      width: 13px;
+      height: 13px;
+      transform: translateY(-50%) rotate(45deg);
+      background: #16161a;
+      border-left: 0.5px solid var(--fwc-hairline);
+      border-bottom: 0.5px solid var(--fwc-hairline);
+      border-bottom-left-radius: 3px;
+    }
     .sheet-head {
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 7px;
-      font-size: 16px;
+      font-size: var(--d-font);
       font-weight: 600;
     }
-    .sheet-head-icon { width: 22px; height: 22px; object-fit: contain; }
-    .sheet-close {
-      margin-left: auto;
-      display: grid;
-      place-items: center;
-      width: 28px;
-      height: 28px;
-      border: none;
-      border-radius: 50%;
-      cursor: pointer;
-      color: inherit;
-      background: rgba(255, 255, 255, 0.12);
-    }
-    .sheet-close svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+    .sheet-head-icon { width: var(--fwc-icon); height: var(--fwc-icon); object-fit: contain; }
 
     .sheet-strip {
       display: flex;
@@ -2007,14 +2109,14 @@ export class FruityWeatherCard extends LitElement {
       cursor: pointer;
       font: inherit;
     }
-    .sday-w { font-size: 13px; font-weight: 600; color: var(--fwc-dim); }
+    .sday-w { font-size: calc(var(--d-font) * 0.85); font-weight: 600; color: var(--fwc-dim); }
     .sday-n {
       display: grid;
       place-items: center;
       width: 28px;
       height: 28px;
       border-radius: 50%;
-      font-size: 15px;
+      font-size: calc(var(--d-font) * 0.85);
       font-variant-numeric: tabular-nums;
     }
     .sday.on .sday-n { background: #fff; color: #16161a; font-weight: 600; }
@@ -2027,7 +2129,7 @@ export class FruityWeatherCard extends LitElement {
       padding-top: 8px;
       border-top: 0.5px solid var(--fwc-hairline);
     }
-    .sheet-date { flex: 1; text-align: center; font-size: 15px; font-weight: 500; }
+    .sheet-date { flex: 1; text-align: center; font-size: calc(var(--d-font) * 0.85); font-weight: 500; }
     .snav {
       display: grid;
       place-items: center;
@@ -2052,19 +2154,19 @@ export class FruityWeatherCard extends LitElement {
       letter-spacing: -0.5px;
     }
     .sheet-lo { color: var(--fwc-dim); }
-    .sheet-cond { width: 30px; height: 30px; object-fit: contain; margin-left: 6px; }
-    .sheet-unit { font-size: 13px; color: var(--fwc-dim); margin-top: 1px; }
+    .sheet-cond { width: var(--fwc-icon); height: var(--fwc-icon); object-fit: contain; margin-left: 6px; }
+    .sheet-unit { font-size: calc(var(--d-font) * 0.85); color: var(--fwc-dim); margin-top: 1px; }
 
     .sheet-glyphs {
       position: relative;
-      height: 22px;
+      height: var(--fwc-icon);
       margin: 12px 34px 2px 0;
     }
     .sglyph {
       position: absolute;
       transform: translateX(-50%);
-      width: 20px;
-      height: 20px;
+      width: var(--fwc-icon);
+      height: var(--fwc-icon);
       object-fit: contain;
     }
     .sheet-chart { display: flex; height: 150px; }
@@ -2096,7 +2198,7 @@ export class FruityWeatherCard extends LitElement {
       position: absolute;
       left: 50%;
       transform: translateX(-50%);
-      font-size: 12px;
+      font-size: calc(var(--d-font) * 0.85);
       font-weight: 600;
       color: var(--fwc-dim);
     }
@@ -2107,7 +2209,7 @@ export class FruityWeatherCard extends LitElement {
       position: absolute;
       right: 0;
       transform: translateY(-50%);
-      font-size: 12px;
+      font-size: calc(var(--d-font) * 0.85);
       font-variant-numeric: tabular-nums;
       color: var(--fwc-dim);
     }
@@ -2119,16 +2221,48 @@ export class FruityWeatherCard extends LitElement {
     .sheet-xaxis span {
       position: absolute;
       transform: translateX(-50%);
-      font-size: 12px;
+      font-size: calc(var(--d-font) * 0.85);
       color: var(--fwc-dim);
       white-space: nowrap;
     }
+    /* Edge labels are pinned inward; centred on 0% or 100% half of each would
+       fall outside the sheet's padding box and be clipped. */
+    .sheet-xaxis span.first, .sglyph.first { transform: none; }
+    .sheet-xaxis span.last { transform: translateX(-100%); }
+    .sglyph.last { transform: translateX(-100%); }
     .sheet-note {
       padding: 26px 0 10px;
       text-align: center;
       font-size: 14px;
       color: var(--fwc-dim);
     }
+    /* Scrub readout — replaces the H/L block while a finger is on the curve. */
+    .sheet-hilo.scrubbing { display: block; }
+    .scrub-time { font-size: calc(var(--d-font) * 0.85); color: var(--fwc-dim); }
+    .scrub-row { display: flex; align-items: center; gap: 8px; }
+    .scrub-temp { font-size: 34px; font-weight: 500; letter-spacing: -0.5px; }
+    .scrub-row .sheet-cond { margin-left: 0; }
+    .scrub-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 0;
+      border-left: 1.5px solid #fff;
+      pointer-events: none;
+    }
+    .scrub-dot {
+      position: absolute;
+      width: 13px;
+      height: 13px;
+      margin: -6.5px 0 0 -6.5px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);
+      pointer-events: none;
+    }
+    /* The plot owns the gesture, so a drag across it must not also pan the
+       pop-up it lives in. */
+    .sheet-plot { touch-action: none; cursor: crosshair; }
     .sheet-retry {
       margin-left: 8px;
       padding: 3px 10px;
