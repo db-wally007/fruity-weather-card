@@ -533,28 +533,49 @@ export class FruityWeatherCard extends LitElement {
     }
   }
 
-  /**
-   * `row` is the element tapped, so the sheet's pointer can be aimed at it. It
-   * is optional because the day strip and the arrows re-open the sheet without
-   * a row, and those should leave the pointer where it is.
-   */
-  private _openDaySheet(index: number, row?: HTMLElement): void {
-    if (row) {
-      const card = this.renderRoot.querySelector('ha-card');
-      if (card) {
-        const r = row.getBoundingClientRect();
-        this._sheetAnchor = r.top + r.height / 2 - card.getBoundingClientRect().top;
-      }
-    }
+  private _openDaySheet(index: number): void {
     this._hourScrub = null;
     this._sheetDay = index;
+    this._anchorToRow(index);
     void this._ensureHourly();
+  }
+
+  /**
+   * Aim the notch at row `index` of the daily list, found in the DOM rather
+   * than passed in by the caller. The tapped element was only available from a
+   * row tap, so changing day from the strip or the arrows left the notch
+   * pointing at whichever day had been open before.
+   */
+  private _anchorToRow(index: number): void {
+    const card = this.renderRoot.querySelector('ha-card');
+    const row = this.renderRoot.querySelectorAll('.drow')[index] as HTMLElement | undefined;
+    if (!card || !row) return;
+    const r = row.getBoundingClientRect();
+    this._sheetAnchor = r.top + r.height / 2 - card.getBoundingClientRect().top;
   }
 
   private _closeDaySheet(): void {
     this._sheetDay = null;
     this._hourScrub = null;
   }
+
+  /**
+   * A click on the backdrop closes the sheet — unless it landed on a daily row,
+   * in which case it switches to that day instead. The backdrop covers the
+   * whole card, so the rows underneath never receive the event themselves; hit
+   * testing them here is what makes "tap another day" work while the sheet is
+   * open, rather than dismissing it and forcing a second tap.
+   */
+  private _onWrapClick = (ev: MouseEvent): void => {
+    const rows = [...this.renderRoot.querySelectorAll('.drow')] as HTMLElement[];
+    const i = rows.findIndex((r) => {
+      const b = r.getBoundingClientRect();
+      return ev.clientX >= b.left && ev.clientX <= b.right
+          && ev.clientY >= b.top && ev.clientY <= b.bottom;
+    });
+    if (i >= 0) this._openDaySheet(i);
+    else this._closeDaySheet();
+  };
 
   /**
    * Aim the sheet at the row that opened it. Done after render because it needs
@@ -704,7 +725,7 @@ export class FruityWeatherCard extends LitElement {
   /** Seconds of wall clock per forecast frame while playing. */
   private static readonly FRAME_SECONDS = 0.9;
 
-  /** Day-sheet notch reach, in px. Must match border-right on .sheet-arrow. */
+  /** Day-sheet notch reach, in px. Must match .sheet-arrow's width. */
   private static readonly ARROW_W = 26;
 
   private _togglePlayback(): void {
@@ -1314,7 +1335,7 @@ export class FruityWeatherCard extends LitElement {
                    // more specific intent, so it wins and does not bubble.
                    e.stopPropagation();
                    if (this._movedSincePointer(e)) return;
-                   this._openDaySheet(i, e.currentTarget as HTMLElement);
+                   this._openDaySheet(i);
                  }}>
               <div class="dday">${day}</div>
               <img class="dicon" src=${this._iconUrl(iconFor(d.condition, i === 0 && this._isNight))} alt=${d.condition ?? ''} />
@@ -1355,8 +1376,11 @@ export class FruityWeatherCard extends LitElement {
     const unit = this.hass?.config?.unit_system?.temperature ?? '°C';
 
     return html`
-      <div class="sheet-wrap" @click=${this._closeDaySheet}>
-        <div class="sheet-arrow"></div>
+      <div class="sheet-wrap" @click=${this._onWrapClick}>
+        <svg class="sheet-arrow" viewBox="0 0 26 36" aria-hidden="true">
+          <polygon points="26,0 1,18 26,36" />
+          <polyline points="26,0 1,18 26,36" />
+        </svg>
         <div class="sheet" @click=${(e: Event) => e.stopPropagation()}>
           <div class="sheet-head">
             <img class="sheet-head-icon"
@@ -2016,6 +2040,8 @@ export class FruityWeatherCard extends LitElement {
       --fwc-font: system-ui, 'SF Pro Display', 'SF Pro Text', Inter,
         'Helvetica Neue', Roboto, sans-serif;
       --fwc-panel: rgba(255, 255, 255, 0.13);
+      /* One source for the sheet's fill so its notch cannot drift from it. */
+      --sheet-bg: #16161a;
       --fwc-hairline: rgba(255, 255, 255, 0.14);
       --fwc-dim: rgba(255, 255, 255, 0.62);
       --fwc-dimmer: rgba(255, 255, 255, 0.45);
@@ -2098,40 +2124,32 @@ export class FruityWeatherCard extends LitElement {
       box-sizing: border-box;
       padding: 12px 14px 14px;
       border-radius: 18px;
-      background: #16161a;
+      background: var(--sheet-bg);
       border: 0.5px solid var(--fwc-hairline);
       box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
     }
     /*
-     * The notch that ties the sheet to its row. A border triangle rather than a
-     * rotated square: a square's reach is bounded by its own side length, and
-     * this has to cross the 14px column gap AND bite into the daily list behind
-     * it to read as pointing at a row. ARROW_W below is that reach.
+     * The notch that ties the sheet to its row. An SVG rather than the usual
+     * CSS border triangle: that trick cannot carry a stroke, and faking one
+     * with a second triangle behind it left the fill and the sheet drifting to
+     * different darks. Here the fill reads the SAME custom property the sheet
+     * paints with, and only the two slanted sides are stroked, so the notch is
+     * literally an extension of the sheet's own edge.
      */
     .sheet-arrow {
       position: absolute;
       z-index: 1;
-      width: 0;
-      height: 0;
+      width: 26px;
+      height: 36px;
       transform: translateY(-50%);
-      border-top: 18px solid transparent;
-      border-bottom: 18px solid transparent;
-      border-right: 26px solid rgba(255, 255, 255, 0.30);
+      overflow: visible;
     }
-    /* A CSS triangle cannot carry a stroke, so the outline is a second triangle
-       behind it: the parent is the edge colour and this is the fill, inset so
-       the parent shows only along the two slanted sides. Without it the notch
-       is a black shape on a black sheet and reads as detached. */
-    .sheet-arrow::after {
-      content: '';
-      position: absolute;
-      top: -16px;
-      left: 2px;
-      width: 0;
-      height: 0;
-      border-top: 16px solid transparent;
-      border-bottom: 16px solid transparent;
-      border-right: 24px solid #16161a;
+    .sheet-arrow polygon { fill: var(--sheet-bg); }
+    .sheet-arrow polyline {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.26);
+      stroke-width: 1;
+      stroke-linejoin: round;
     }
     .sheet-head {
       display: flex;
@@ -2244,15 +2262,15 @@ export class FruityWeatherCard extends LitElement {
     .scurve polyline {
       fill: none;
       stroke: #f0a93b;
-      stroke-width: 3;
+      stroke-width: 4;
       stroke-linejoin: round;
       stroke-linecap: round;
     }
     .smark {
       position: absolute;
-      width: 9px;
-      height: 9px;
-      margin: -4.5px 0 0 -4.5px;
+      width: 10px;
+      height: 10px;
+      margin: -5px 0 0 -5px;
       border-radius: 50%;
       background: #fff;
       box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);
@@ -2334,17 +2352,17 @@ export class FruityWeatherCard extends LitElement {
        is the glyph row plus its margins, kept in the same terms as they are. */
     .scrub-line {
       position: absolute;
-      top: calc(-1 * (var(--fwc-icon) + 14px));
+      top: calc(-1 * (var(--fwc-icon) + 12px));
       bottom: 0;
       width: 0;
-      border-left: 2px solid #fff;
+      border-left: 3px solid #fff;
       pointer-events: none;
     }
     .scrub-dot {
       position: absolute;
-      width: 13px;
-      height: 13px;
-      margin: -6.5px 0 0 -6.5px;
+      width: 15px;
+      height: 15px;
+      margin: -7.5px 0 0 -7.5px;
       border-radius: 50%;
       background: #fff;
       box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);
