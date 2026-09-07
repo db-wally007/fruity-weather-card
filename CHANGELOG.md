@@ -4,15 +4,17 @@
 
 ### Added
 
-- **Day detail sheet.** Tap any row of the daily list for that day's hourly temperature curve,
-  condition glyphs and its own high/low, with a day picker and prev/next navigation.
+- **Day detail card.** Tap any row of the daily list and an hourly card opens beside it — three
+  columns wide, the same height as the list, with the tiles flowing underneath. A notch on its left
+  edge points at the day being shown, and prev/next arrows step through the days. Tap the same row
+  again to close. Deliberately a grid card, not an overlay: nothing is hidden behind it and its
+  position never moves.
 - Ten-day hourly source (`src/hourly-source.ts`). Home Assistant's weather entity only carries as
   much hourly data as its integration publishes — met.no stops at 48 entries — which would have
   left seven of the ten rows with nothing to show. One Open-Meteo request covers all ten days.
 - Scrubbing the curve: drag across it for that hour's time, temperature and
   condition; the day's high/low step aside while a finger is down and return on release.
-- The sheet is pinned beside the daily list, three tile columns wide, with a pointer aimed at the
-  row that opened it — so the row it describes stays visible next to it.
+- Hovering the curve reads out as well as dragging, so it works with a mouse.
 
 ### Changed
 

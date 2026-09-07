@@ -50,6 +50,19 @@ truth for both sizes.
 `lat0`/`lon0` come from `hass.config.latitude/longitude`. It is gitignored. Never commit it, and
 never paste its contents anywhere public.
 
+### The day detail is a GRID CARD, not an overlay
+
+It was a floating sheet first, and every version of that fought the layout: it
+hid the tiles behind it, its top had to be clamped and re-measured, and a
+backdrop covering the card swallowed clicks meant for the daily rows. It is now
+a normal grid item spanning three columns and two rows beside the daily list, so
+the tiles simply flow after it. The card never moves; only the notch does.
+
+Consequences to preserve: it must be rendered INSIDE `.grid` (rendered after it
+and it becomes a full-width block below), its height matches the daily panel's
+pinned `tile*2 + gap`, and the notch's fill reads the same `--sheet-bg` the card
+paints with so the two cannot drift to different darks.
+
 ### Bubble pop-ups cannot pass CSS variables to a hosted card
 
 Bubble rewrites pop-up `styles:` selectors with a `:not(.bubble-cards-grid-container, …)` that

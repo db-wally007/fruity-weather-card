@@ -359,8 +359,6 @@ export class FruityWeatherCard extends LitElement {
   @state() private _sheetDay: number | null = null;
   /** Hour being scrubbed on the sheet's curve; null restores the H/L readout. */
   @state() private _hourScrub: number | null = null;
-  /** Centre of the tapped daily row, relative to the card, for the pointer. */
-  private _sheetAnchor = 0;
   @state() private _hourlyDays?: HourlyDays;
   @state() private _hourlyError = false;
   private _hourlyPending = false;
@@ -463,7 +461,7 @@ export class FruityWeatherCard extends LitElement {
       if (this._config.map) this._watchMapVisible();
     }
     if (this._config?.map) { this._paintMap(); this._syncMapBar(); this._watchMapSize(); }
-    if (this._sheetDay !== null) { this._positionSheet(); this._positionReadout(); }
+    if (this._sheetDay !== null) { this._positionArrow(); this._positionReadout(); }
   }
 
   /* ------------------------------------------------ precipitation map ---- */
@@ -536,22 +534,7 @@ export class FruityWeatherCard extends LitElement {
   private _openDaySheet(index: number): void {
     this._hourScrub = null;
     this._sheetDay = index;
-    this._anchorToRow(index);
     void this._ensureHourly();
-  }
-
-  /**
-   * Aim the notch at row `index` of the daily list, found in the DOM rather
-   * than passed in by the caller. The tapped element was only available from a
-   * row tap, so changing day from the strip or the arrows left the notch
-   * pointing at whichever day had been open before.
-   */
-  private _anchorToRow(index: number): void {
-    const card = this.renderRoot.querySelector('ha-card');
-    const row = this.renderRoot.querySelectorAll('.drow')[index] as HTMLElement | undefined;
-    if (!card || !row) return;
-    const r = row.getBoundingClientRect();
-    this._sheetAnchor = r.top + r.height / 2 - card.getBoundingClientRect().top;
   }
 
   private _closeDaySheet(): void {
@@ -560,50 +543,21 @@ export class FruityWeatherCard extends LitElement {
   }
 
   /**
-   * A click on the backdrop closes the sheet — unless it landed on a daily row,
-   * in which case it switches to that day instead. The backdrop covers the
-   * whole card, so the rows underneath never receive the event themselves; hit
-   * testing them here is what makes "tap another day" work while the sheet is
-   * open, rather than dismissing it and forcing a second tap.
+   * Put the notch level with the selected row. The card itself is grid-placed
+   * and never moves, so this is the only thing left to position — and it is
+   * measured rather than derived, because the row height depends on how many
+   * days the provider returned.
    */
-  private _onWrapClick = (ev: MouseEvent): void => {
-    const rows = [...this.renderRoot.querySelectorAll('.drow')] as HTMLElement[];
-    const i = rows.findIndex((r) => {
-      const b = r.getBoundingClientRect();
-      return ev.clientX >= b.left && ev.clientX <= b.right
-          && ev.clientY >= b.top && ev.clientY <= b.bottom;
-    });
-    if (i >= 0) this._openDaySheet(i);
-    else this._closeDaySheet();
-  };
-
-  /**
-   * Aim the sheet at the row that opened it. Done after render because it needs
-   * the sheet's measured height: it is centred on the row, then clamped inside
-   * the card, and the pointer slides along the sheet's edge to stay on the row
-   * whatever the clamp did.
-   */
-  private _positionSheet(): void {
-    const card = this.renderRoot.querySelector('ha-card') as HTMLElement | null;
-    const sheet = this.renderRoot.querySelector('.sheet') as HTMLElement | null;
+  private _positionArrow(): void {
+    const card = this.renderRoot.querySelector('.daycard') as HTMLElement | null;
     const arrow = this.renderRoot.querySelector('.sheet-arrow') as HTMLElement | null;
-    if (!card || !sheet) return;
-    const cardH = card.getBoundingClientRect().height;
-    const h = sheet.getBoundingClientRect().height;
-    const MARGIN = 10;
-    const top = Math.min(Math.max(this._sheetAnchor - h / 2, MARGIN), Math.max(cardH - h - MARGIN, MARGIN));
-    sheet.style.top = `${top}px`;
-    if (arrow) {
-      // Keep the pointer off the rounded corners even when the clamp has moved
-      // the sheet well away from the row. It lives OUTSIDE the sheet because
-      // the sheet scrolls, and overflow:auto would clip a child hanging off its
-      // left edge — so it is positioned against the sheet rather than within it.
-      const y = Math.min(Math.max(this._sheetAnchor - top, 22), Math.max(h - 22, 22));
-      arrow.style.top = `${top + y}px`;
-      // Butts against the sheet and reaches back across the column gap, so its
-      // tip lands a few pixels inside the daily list it is pointing at.
-      arrow.style.left = `${sheet.offsetLeft - FruityWeatherCard.ARROW_W}px`;
-    }
+    const row = this.renderRoot.querySelectorAll('.drow')[this._sheetDay ?? 0] as HTMLElement | undefined;
+    if (!card || !arrow || !row) return;
+    const c = card.getBoundingClientRect();
+    const r = row.getBoundingClientRect();
+    // Kept off the card's rounded corners even when the row is at an extreme.
+    const y = Math.min(Math.max(r.top + r.height / 2 - c.top, 24), Math.max(c.height - 24, 24));
+    arrow.style.top = `${Math.round(y)}px`;
   }
 
   /** Hours for the day at `index` of the daily list, or [] when unavailable. */
@@ -724,9 +678,6 @@ export class FruityWeatherCard extends LitElement {
 
   /** Seconds of wall clock per forecast frame while playing. */
   private static readonly FRAME_SECONDS = 0.9;
-
-  /** Day-sheet notch reach, in px. Must match .sheet-arrow's width. */
-  private static readonly ARROW_W = 26;
 
   private _togglePlayback(): void {
     if (this._mapPlaying) { this._stopPlayback(); return; }
@@ -1157,9 +1108,9 @@ export class FruityWeatherCard extends LitElement {
         ${this._renderHourly()}
         <div class="grid">
           ${this._renderDaily()}
+          ${this._renderDaySheet()}
           ${this._renderTiles()}
         </div>
-        ${this._renderDaySheet()}
       </ha-card>
     `;
   }
@@ -1335,7 +1286,10 @@ export class FruityWeatherCard extends LitElement {
                    // more specific intent, so it wins and does not bubble.
                    e.stopPropagation();
                    if (this._movedSincePointer(e)) return;
-                   this._openDaySheet(i);
+                   // Toggle: the card has no dismiss chrome, and tapping the
+                   // row that opened it is the obvious way back.
+                   if (this._sheetDay === i) this._closeDaySheet();
+                   else this._openDaySheet(i);
                  }}>
               <div class="dday">${day}</div>
               <img class="dicon" src=${this._iconUrl(iconFor(d.condition, i === 0 && this._isNight))} alt=${d.condition ?? ''} />
@@ -1355,8 +1309,11 @@ export class FruityWeatherCard extends LitElement {
   }
 
   /**
-   * The day-detail sheet: a day picker, that day's high and low, a row of
-   * condition glyphs and an hourly temperature curve.
+   * The day-detail card: that day's high and low, a row of condition glyphs and
+   * an hourly temperature curve. It is a GRID CARD, not an overlay — it takes
+   * three columns beside the daily list and pushes the tiles along, so nothing
+   * is hidden behind it and its position never moves. Only the notch travels,
+   * to point at whichever row is selected.
    *
    * The H/L printed here come from the CURVE, not from the daily list row, so
    * the numbers and the picture always agree. They can differ by a degree or
@@ -1376,31 +1333,11 @@ export class FruityWeatherCard extends LitElement {
     const unit = this.hass?.config?.unit_system?.temperature ?? '°C';
 
     return html`
-      <div class="sheet-wrap" @click=${this._onWrapClick}>
+      <div class="daycard">
         <svg class="sheet-arrow" viewBox="0 0 26 36" aria-hidden="true">
           <polygon points="26,0 1,18 26,36" />
           <polyline points="26,0 1,18 26,36" />
         </svg>
-        <div class="sheet" @click=${(e: Event) => e.stopPropagation()}>
-          <div class="sheet-head">
-            <img class="sheet-head-icon"
-                 src=${this._iconUrl(iconFor(day.condition, false))} alt="" />
-            <span>Conditions</span>
-          </div>
-
-          <div class="sheet-strip">
-            ${days.map((d, i) => {
-              const dt = new Date(d.datetime);
-              return html`
-                <button class="sday ${i === index ? 'on' : ''}"
-                        @click=${() => this._openDaySheet(i)}>
-                  <span class="sday-w">${dt.toLocaleDateString(lang, { weekday: 'narrow' })}</span>
-                  <span class="sday-n">${dt.getDate()}</span>
-                </button>
-              `;
-            })}
-          </div>
-
           <div class="sheet-nav">
             <button class="snav" ?disabled=${index === 0}
                     @click=${() => this._openDaySheet(index - 1)}>
@@ -1418,9 +1355,7 @@ export class FruityWeatherCard extends LitElement {
                 <path d="M9 5 L16 12 L9 19" /></svg>`}
             </button>
           </div>
-
           ${this._renderSheetBody(hours, unit, day)}
-        </div>
       </div>
     `;
   }
@@ -2099,46 +2034,35 @@ export class FruityWeatherCard extends LitElement {
     /* Covers the card rather than the viewport: the card is often hosted in a
        pop-up that owns the screen, and a second full-screen layer inside it
        fights the host's own backdrop and scroll lock. */
-    /* A transparent click-catcher over the card. No dimming: the reference
-       leaves the card behind it legible, and the sheet reads as attached to the
-       row rather than as a modal over everything. */
-    .sheet-wrap {
-      position: absolute;
-      inset: 0;
-      z-index: 20;
-      border-radius: inherit;
-    }
     /*
-     * Three tile columns wide, parked in the tile area so it never covers the
-     * daily list it was launched from — the whole point is to compare the sheet
-     * against the row still visible beside it. Its top offset is set from
-     * script, which aims it at that row.
+     * The day card lives IN the grid: three columns beside the daily list, the
+     * same two rows tall, so the tiles simply flow after it. Nothing overlays
+     * anything, so its position is fixed and only the notch moves.
      */
-    .sheet {
-      position: absolute;
-      left: calc(12px + 2 * var(--fwc-tile) + 2 * var(--fwc-gap));
-      width: calc(3 * var(--fwc-tile) + 2 * var(--fwc-gap));
-      max-width: calc(100% - 2 * var(--fwc-gap));
-      max-height: calc(100% - 20px);
-      overflow: auto;
+    .daycard {
+      position: relative;
+      grid-column: span 3;
+      grid-row: span 2;
+      height: calc(var(--fwc-tile) * 2 + var(--fwc-gap));
       box-sizing: border-box;
-      padding: 12px 14px 14px;
+      display: flex;
+      flex-direction: column;
+      padding: 10px 14px 12px;
       border-radius: 18px;
       background: var(--sheet-bg);
       border: 0.5px solid var(--fwc-hairline);
-      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
     }
     /*
-     * The notch that ties the sheet to its row. An SVG rather than the usual
-     * CSS border triangle: that trick cannot carry a stroke, and faking one
-     * with a second triangle behind it left the fill and the sheet drifting to
-     * different darks. Here the fill reads the SAME custom property the sheet
+     * The notch that ties the card to its row. An SVG rather than the usual CSS
+     * border triangle: that trick cannot carry a stroke, and faking one with a
+     * second triangle behind it left the fill and the card drifting to
+     * different darks. Here the fill reads the SAME custom property the card
      * paints with, and only the two slanted sides are stroked, so the notch is
-     * literally an extension of the sheet's own edge.
+     * literally an extension of the card's own edge. Its top is set by script.
      */
     .sheet-arrow {
       position: absolute;
-      z-index: 1;
+      left: -26px;
       width: 26px;
       height: 36px;
       transform: translateY(-50%);
@@ -2151,50 +2075,6 @@ export class FruityWeatherCard extends LitElement {
       stroke-width: 1;
       stroke-linejoin: round;
     }
-    .sheet-head {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 7px;
-      font-size: var(--d-font);
-      font-weight: 600;
-    }
-    .sheet-head-icon { width: var(--fwc-icon); height: var(--fwc-icon); object-fit: contain; }
-
-    .sheet-strip {
-      display: flex;
-      gap: 2px;
-      margin: 12px 0 4px;
-      overflow-x: auto;
-      scrollbar-width: none;
-    }
-    .sheet-strip::-webkit-scrollbar { display: none; }
-    .sday {
-      flex: 1 0 auto;
-      min-width: 40px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 5px;
-      padding: 4px 2px 6px;
-      border: none;
-      background: none;
-      color: inherit;
-      cursor: pointer;
-      font: inherit;
-    }
-    .sday-w { font-size: calc(var(--d-font) * 0.85); font-weight: 600; color: var(--fwc-dim); }
-    .sday-n {
-      display: grid;
-      place-items: center;
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      font-size: calc(var(--d-font) * 0.85);
-      font-variant-numeric: tabular-nums;
-    }
-    .sday.on .sday-n { background: #fff; color: #16161a; font-weight: 600; }
-    .sday.on .sday-w { color: #4ea1ff; }
 
     .sheet-nav {
       display: flex;
@@ -2268,9 +2148,9 @@ export class FruityWeatherCard extends LitElement {
     }
     .smark {
       position: absolute;
-      width: 10px;
-      height: 10px;
-      margin: -5px 0 0 -5px;
+      width: 11px;
+      height: 11px;
+      margin: -5.5px 0 0 -5.5px;
       border-radius: 50%;
       background: #fff;
       box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);
@@ -2331,9 +2211,8 @@ export class FruityWeatherCard extends LitElement {
      * under the cursor, and — the subtle one — inline-block establishes a block
      * formatting context, which CONTAINS the child's margin-top instead of
      * letting it collapse out. Switching display between states therefore
-     * changed the sheet's height by that margin, and _positionSheet re-clamped
-     * the top, so the whole sheet jumped every time a pointer touched the
-     * curve. Same box model in both states, no jump.
+     * changed the readout's height by that margin, which used to move the whole
+     * sheet. Same box model in both states, no jump.
      */
     .sheet-readout {
       display: inline-block;
@@ -2360,9 +2239,9 @@ export class FruityWeatherCard extends LitElement {
     }
     .scrub-dot {
       position: absolute;
-      width: 15px;
-      height: 15px;
-      margin: -7.5px 0 0 -7.5px;
+      width: 16px;
+      height: 16px;
+      margin: -8px 0 0 -8px;
       border-radius: 50%;
       background: #fff;
       box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);

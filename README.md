@@ -16,8 +16,8 @@ strip, the range bars, the sun arc, the wind rose and the map are all drawn by t
 - **Daily list** — N days with a low→high range bar coloured by temperature.
 - **Detail tiles** — sunrise/sunset arc, wind rose, precipitation, feels-like, humidity. Each can
   read a real sensor rather than the forecast, and each can be given its own tap action.
-- **Day detail** — tap any row of the daily list for that day's hourly temperature curve, condition
-  glyphs, high and low, with a day picker to move between days.
+- **Day detail** — tap any row of the daily list and an hourly card opens beside it, three columns
+  wide, pushing the tiles down. A notch on its edge points at the day it is showing.
 - **Precipitation map** — Open-Meteo's gridded forecast drawn over an Esri basemap, with a
   server-side cache so the API budget is spent once for the whole house rather than per browser.
   It starts animating as soon as you expand it.
@@ -216,8 +216,13 @@ transparent toward the bottom, and the text carries a wide, soft shadow rather t
 
 ## Day detail
 
-Tapping a row of the daily list opens a sheet with that day's hourly temperature curve, a glyph
-per few hours, and the day's high and low.
+Tapping a row of the daily list opens an hourly card beside it — three tile columns wide and the
+same height as the list, so the detail tiles simply flow underneath. It is a grid card rather than
+an overlay: nothing is hidden behind it, its position never changes, and only the notch on its left
+edge moves, to point at whichever day is selected. Tap the same row again to close it.
+
+It carries that day's hourly temperature curve, a condition glyph every few hours, and the day's
+high and low. Drag or hover across the curve for the time, temperature and condition at that hour.
 
 **The curve does not come from your weather entity.** Home Assistant serves whatever the
 integration publishes, and met.no publishes exactly **48 hourly entries** — today, tomorrow and a
