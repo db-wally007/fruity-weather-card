@@ -2281,11 +2281,17 @@ export class FruityWeatherCard extends LitElement {
          the other, so neither a light nor a dark colour alone stays legible.
          A soft dark halo — wide and diffuse rather than a tight outline, which
          read as a hard edge — darkens whatever is behind the glyph without
-         changing its colour, which is matched to the temperature scale. */
+         changing its colour, which is matched to the temperature scale. The
+         smallest radius is deliberately large and the middle one is repeated:
+         stacking layers deepens the shade without adding a crisp edge, which is
+         how it gets darker AND softer at once rather than trading one for the
+         other. */
       text-shadow:
-        0 0 5px rgba(0, 0, 0, 0.95),
-        0 0 11px rgba(0, 0, 0, 0.85),
-        0 0 20px rgba(0, 0, 0, 0.6);
+        0 0 9px rgba(0, 0, 0, 0.9),
+        0 0 16px rgba(0, 0, 0, 0.85),
+        0 0 16px rgba(0, 0, 0, 0.7),
+        0 0 26px rgba(0, 0, 0, 0.75),
+        0 0 38px rgba(0, 0, 0, 0.5);
     }
     .smark.hi span { bottom: 13px; }
     .smark.lo span { top: 13px; }
