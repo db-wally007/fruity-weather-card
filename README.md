@@ -244,8 +244,21 @@ peak of its curve comes from Open-Meteo, so the two can differ by a degree or so
 its **own** high and low from the curve it is drawing, so what is shown and what is labelled always
 agree with each other.
 
-Precipitation probability is deliberately absent — see the note in `hourly-source.ts`; it will
-arrive with the wider precipitation-chance work.
+The thermometer/droplet buttons at the right of the header switch the chart between temperature and
+**chance of precipitation**. Temperature is the default each time the card opens, and your choice
+sticks while it stays open, so stepping through the days keeps showing the same series. The
+probability scale is always 0–100%, never rescaled to the day, so a dry day looks dry.
+
+Each row of the daily list also carries its day's peak chance under the condition glyph. Days below
+20% show nothing — the figure comes from an ensemble that reports a few percent even on days
+forecast completely dry.
+
+**Where the probability comes from, and its resolution.** No Home Assistant weather integration
+publishes it — not met.no (the field is absent from their API outside the Nordics, not merely
+unexposed) and not the Open-Meteo integration. The card reads it from the Open-Meteo REST API, on
+the same request that fetches the hourly temperatures. Be aware it is a **~25 km** figure while the
+temperatures are ~2.2 km: probability can only come from an ensemble, and free ensembles are coarse.
+It can disagree with the precipitation map, which is drawn from the high-resolution field.
 
 ## Precipitation map
 
@@ -259,6 +272,13 @@ Every browser profile keeps its own cache, so a tablet, a phone and a desktop ea
 [`pyscript/fruity_weather.py`](pyscript/fruity_weather.py) fetches it once for the whole house
 instead, on a timer, and writes `precip-grid.json` next to the card. At the default refresh that is
 a flat ~6.9k calls a day no matter how many dashboards are open. Setup is in the file's docstring.
+
+The same script also writes `precip-hourly.json` — the ten-day hourly forecast for your own
+location, used by the day card and the daily list's chance of precipitation. Unlike the grid this
+is a **single** point, so it is not about quota: one location costs one call whoever makes it. It is
+there so every device in the house draws the same numbers, and so the card still works on a
+dashboard whose browser cannot reach the internet. Without pyscript the card fetches it directly and
+behaves identically.
 
 The map needs internet **from the browser**, not just from Home Assistant.
 

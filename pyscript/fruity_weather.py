@@ -65,6 +65,20 @@ OUT_PATH = "/config/www/fruity-weather-card/precip-grid.json"
 API = "https://api.open-meteo.com/v1/forecast"
 TIMEOUT = 60
 
+# ---- ten-day hourly for the day-detail card ---------------------------------
+# A SINGLE point, so unlike the grid above this one is not about quota: one
+# location costs one call whether the browser makes it or this does. It is here
+# so every device in the house draws the same numbers from one fetch, and so the
+# card keeps working on a dashboard whose browser cannot reach the internet.
+#
+# The variable list must stay identical to HOURLY_VARS / DAILY_VARS in
+# src/hourly-source.ts: the card parses this file with the same code it uses for
+# the API response, so a mismatch shows up as missing data rather than an error.
+HOURLY_OUT_PATH = "/config/www/fruity-weather-card/precip-hourly.json"
+HOURLY_VARS = "temperature_2m,weather_code,precipitation_probability,precipitation"
+DAILY_VARS = "precipitation_probability_max"
+HOURLY_DAYS = 10
+
 
 def _write_bytes(path, data):
     """Atomic write — the card must never read a half-written file."""
@@ -162,24 +176,97 @@ def _sync():
     return True
 
 
+def _fetch_hourly(lat0, lon0):
+    """Ten days of hourly forecast for the home point, plus the daily peaks.
+
+    `timezone=auto` is deliberate and differs from the grid above, which uses
+    UTC. The card keys this data by LOCAL date and reads the hour straight out
+    of the timestamp string, so the provider doing the conversion removes all
+    date arithmetic — and with it the DST bugs that arithmetic invites.
+    """
+    url = (
+        API
+        + "?latitude=" + str(lat0) + "&longitude=" + str(lon0)
+        + "&hourly=" + HOURLY_VARS
+        + "&daily=" + DAILY_VARS
+        + "&forecast_days=" + str(HOURLY_DAYS)
+        + "&timezone=auto"
+    )
+    req = urllib.request.Request(url, headers={"User-Agent": "fruity-weather-card"})
+    resp = task.executor(urllib.request.urlopen, req, timeout=TIMEOUT)
+    try:
+        body = task.executor(resp.read)
+    finally:
+        resp.close()
+    data = json.loads(body.decode("utf-8"))
+
+    hourly = data.get("hourly") or {}
+    daily = data.get("daily") or {}
+    if not hourly.get("time"):
+        raise ValueError("open-meteo returned no hourly points")
+
+    # Only the fields the card reads are written out, so the file stays small
+    # and a provider adding columns cannot quietly bloat it.
+    out_hourly = {"time": hourly["time"]}
+    for key in HOURLY_VARS.split(","):
+        out_hourly[key] = hourly.get(key) or []
+    out_daily = {"time": daily.get("time") or []}
+    for key in DAILY_VARS.split(","):
+        out_daily[key] = daily.get(key) or []
+
+    return {
+        "v": 1,
+        "fetchedAt": int(time.time() * 1000),
+        "hourly": out_hourly,
+        "daily": out_daily,
+    }
+
+
+def _sync_hourly():
+    lat0 = round(float(hass.config.latitude), 4)
+    lon0 = round(float(hass.config.longitude), 4)
+    try:
+        payload = _fetch_hourly(lat0, lon0)
+    except Exception as err:
+        # As with the grid: a stale file beats no file, and the card falls back
+        # to calling the API itself if this one goes too far out of date.
+        log.warning("fruity_weather: hourly fetch failed, keeping previous file: %s", err)
+        return False
+    os.makedirs(os.path.dirname(HOURLY_OUT_PATH), exist_ok=True)
+    _write_bytes(HOURLY_OUT_PATH, json.dumps(payload, separators=(",", ":")).encode("utf-8"))
+    log.info(
+        "fruity_weather: wrote %d hourly points and %d daily to %s",
+        len(payload["hourly"]["time"]), len(payload["daily"]["time"]), HOURLY_OUT_PATH,
+    )
+    return True
+
+
 @service
 def fruity_weather_sync():
-    """Fetch the precipitation grid now and write the cache file."""
+    """Fetch the precipitation grid and the hourly forecast now."""
     _sync()
+    _sync_hourly()
 
 
 @time_trigger("cron(0,30 * * * *)")
 def fruity_weather_periodic():
     """Refresh every 30 minutes — 48 runs/day, ~6.9k of the 10k daily calls."""
     _sync()
+    _sync_hourly()
+
+
+def _stale(path):
+    """Module level, not nested: pyscript's interpreter is not CPython and
+    closures are one of the places it diverges. Keep helpers flat."""
+    if not os.path.exists(path):
+        return True
+    return (time.time() - os.path.getmtime(path)) / 60 > REFRESH_MINUTES
 
 
 @time_trigger("startup")
 def fruity_weather_startup():
-    """Seed the file if it is missing or older than one refresh interval."""
-    stale = True
-    if os.path.exists(OUT_PATH):
-        age_min = (time.time() - os.path.getmtime(OUT_PATH)) / 60
-        stale = age_min > REFRESH_MINUTES
-    if stale:
+    """Seed either file if it is missing or older than one refresh interval."""
+    if _stale(OUT_PATH):
         _sync()
+    if _stale(HOURLY_OUT_PATH):
+        _sync_hourly()

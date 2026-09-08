@@ -105,6 +105,26 @@ The date is **centred** in that box. Left-aligning it parks the whole of the sla
 the resulting lopsided gap before the next button was rejected on sight. Keep the two gaps equal:
 `--sheet-date-w` is padded by 10px at both ends for exactly that reason.
 
+### Precipitation PROBABILITY exists in exactly one place
+
+Measured 2026-09-08 against real payloads, not documentation:
+
+| Source | Has hourly probability? |
+| --- | --- |
+| Met.no, both the HA integration and the **raw API** | **No.** `next_1_hours.details` carries `precipitation_amount` alone. The field exists in met.no's schema but is filled only inside their Nordic ensemble domain; elsewhere they serve ECMWF deterministic. Patching the integration would not help. |
+| The Open-Meteo **HA integration** | **No.** It exposes humidity, cloud cover, UV and wind, but not this. |
+| Open-Meteo **REST API** | **Yes** — `hourly=precipitation_probability`, `daily=precipitation_probability_max`. |
+
+So the card fetches it itself. It rides on the request `hourly-source.ts` already makes for the
+temperature curve, which is why moving that fetch anywhere means moving the whole thing — split
+them and the card makes two calls where it used to make one.
+
+**The probability is a far coarser grid than the temperature and cannot be otherwise.** Probability
+requires an ensemble; free ensembles run at ~0.25° (~25 km) while the temperature comes from
+ICON-D2 at ~2.2 km. Measured by querying offset points: temperature changes at every step, but the
+probability at +1 km and +6 km is identical. Expect it to disagree with the precipitation map,
+which is drawn from the high-resolution field. Neither is wrong, and it is not worth "fixing".
+
 ### The temperature scale thins LABELS, never the bounds
 
 The day card's y-axis is capped at four labels. Do that by stepping the labels in larger multiples

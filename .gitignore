@@ -6,6 +6,11 @@ node_modules/
 # coordinates in lat0/lon0. Never commit it.
 precip-grid.json
 
+# Also written by pyscript/fruity_weather.py: the ten-day hourly forecast for
+# the install's own location. It holds no coordinates, but it is a per-install
+# cache and would be stale the moment it was committed.
+precip-hourly.json
+
 # Condition glyphs are held back until their licence is established: the set in
 # use locally arrived without provenance, and this repository is MIT. The card
 # fetches them at RUNTIME (`../icons/<name>.png` relative to the bundle) and has

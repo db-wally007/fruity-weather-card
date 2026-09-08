@@ -35,6 +35,20 @@ import {
 const unsafeGradient = unsafeCSS(LEGEND_GRADIENT);
 
 /**
+ * Below this, a day's chance of precipitation is not printed at all.
+ *
+ * The probability comes from a ~25 km ensemble (see hourly-source.ts), which
+ * emits a few percent on days that are forecast bone dry — 3%, 8%, 16% all
+ * appeared in a run where no day but one carried any rain. Printing those turns
+ * the daily list into a column of meaningless small numbers. The reference app
+ * shows nothing on such days either.
+ */
+const PROB_MIN = 20;
+
+/** Which series the day card charts. */
+type SheetMode = 'temp' | 'precip';
+
+/**
  * Default home of the hero scene artwork. It sits outside the card's own
  * directory because the same set dresses the dashboard's weather launcher
  * button, and duplicating 2 MB of JPEGs to serve two callers is silly.
@@ -361,7 +375,11 @@ export class FruityWeatherCard extends LitElement {
   @state() private _hourScrub: number | null = null;
   @state() private _hourlyDays?: HourlyDays;
   @state() private _hourlyError = false;
+  /** Temperature on every open; sticky across day changes while the card lives. */
+  @state() private _sheetMode: SheetMode = 'temp';
   private _hourlyPending = false;
+  private _hourlyRetryAt = 0;
+  private _hourlyBackoff = 0;
   /** '12h' steps hourly through the forecast; '1h' steps 15-minutely. */
   @state() private _mapRange: '1h' | '12h' = '12h';
   /** The user's chosen zoom; undefined = the configured default. Survives
@@ -462,6 +480,10 @@ export class FruityWeatherCard extends LitElement {
       if (this._config.map) this._watchMapVisible();
     }
     if (this._config?.map) { this._paintMap(); this._syncMapBar(); this._watchMapSize(); }
+    // Needed by the daily list, not just the day card, so it cannot wait for an
+    // open. Cheap to call repeatedly: it returns early unless the cache is stale
+    // and the backoff has elapsed.
+    if (this._daily.length) void this._ensureHourly();
     if (this._sheetDay !== null) { this._positionArrow(); this._positionReadout(); }
   }
 
@@ -512,24 +534,51 @@ export class FruityWeatherCard extends LitElement {
   // -- day-detail sheet ------------------------------------------------------
 
   /**
-   * Ten days of hourly data, fetched lazily: nobody pays for it until a day is
-   * actually opened, and the module caches it for an hour across reloads.
+   * Ten days of hourly data. No longer lazy: the daily list prints each day's
+   * chance of precipitation, so this is needed as soon as the card renders
+   * rather than when a day is opened. The module still caches for an hour
+   * across reloads, and the shared pyscript file usually answers it for free.
+   *
+   * Because `updated()` drives this and runs on every hass state change, a
+   * FAILURE MUST BACK OFF. Without it a single error turns into a request
+   * storm — the same way it once exhausted the whole daily quota through
+   * `_ensureGrid`, which is why that one backs off too.
    */
   private async _ensureHourly(force = false): Promise<void> {
     const lat = this.hass?.config?.latitude;
     const lon = this.hass?.config?.longitude;
     if (lat === undefined || lon === undefined || this._hourlyPending) return;
     if (!force && this._hourlyDays && Date.now() - this._hourlyDays.fetchedAt < HOURLY_TTL_MS) return;
+    if (!force && Date.now() < this._hourlyRetryAt) return;
     this._hourlyPending = true;
     this._hourlyError = false;
     try {
       this._hourlyDays = await fetchHourlyDays(lat, lon, force);
+      this._hourlyBackoff = 0;
+      this._hourlyRetryAt = 0;
     } catch (err) {
       this._hourlyError = true;
-      console.warn('fruity-weather-card: hourly forecast failed', err);
+      this._hourlyBackoff = this._hourlyBackoff ? Math.min(this._hourlyBackoff * 2, 15 * 60_000) : 60_000;
+      this._hourlyRetryAt = Date.now() + this._hourlyBackoff;
+      console.warn(
+        `fruity-weather-card: hourly forecast failed, retrying in ${this._hourlyBackoff / 1000}s`,
+        err,
+      );
     } finally {
       this._hourlyPending = false;
     }
+  }
+
+  /**
+   * A day's peak chance of precipitation, or undefined when there is none or it
+   * is too slight to print. The provider's own daily aggregate is used rather
+   * than the maximum of the hours, so the figure matches what it publishes.
+   */
+  private _dayProb(index: number): number | undefined {
+    const day = this._daily[index];
+    if (!day || !this._hourlyDays) return undefined;
+    const p = this._hourlyDays.dayProb.get(localDateKey(new Date(day.datetime)));
+    return p !== undefined && p >= PROB_MIN ? p : undefined;
   }
 
   private _openDaySheet(index: number): void {
@@ -537,6 +586,9 @@ export class FruityWeatherCard extends LitElement {
     // and reflowing then would make the tiles twitch for no reason.
     if (this._sheetDay === null) {
       window.addEventListener('pointerdown', this._outsideTap, true);
+      // Every open starts on temperature; the toggle only sticks for the life
+      // of this open.
+      this._sheetMode = 'temp';
       void this._reflowGrid(() => { this._sheetDay = index; });
       this._hourScrub = null;
     } else {
@@ -564,26 +616,45 @@ export class FruityWeatherCard extends LitElement {
    */
   private async _switchDay(next: number): Promise<void> {
     const cur = this._sheetDay;
+    if (cur === null || cur === next) { this._hourScrub = null; return; }
+    await this._pushSwap(next > cur ? 1 : -1, () => { this._sheetDay = next; });
+  }
+
+  /**
+   * Switch which series the day card charts. The mode is deliberately NOT reset
+   * when the day changes — only when the card is closed — so stepping through
+   * the week keeps showing whatever the reader asked for.
+   */
+  private async _setSheetMode(mode: SheetMode): Promise<void> {
+    if (mode === this._sheetMode) return;
+    await this._pushSwap(mode === 'precip' ? 1 : -1, () => { this._sheetMode = mode; });
+  }
+
+  /**
+   * The card's one content transition, shared by the day change and the series
+   * toggle: apply `mutate`, then push the old contents out in direction `dir`
+   * while the new ones settle in from the opposite side.
+   */
+  private async _pushSwap(dir: 1 | -1, mutate: () => void): Promise<void> {
     const stage = this.renderRoot.querySelector('.sheet-stage') as HTMLElement | null;
     const body = this.renderRoot.querySelector('.sheet-body') as HTMLElement | null;
     this._hourScrub = null;
 
-    if (cur === null || cur === next || !stage || !body || FruityWeatherCard._reducedMotion()) {
-      this._sheetDay = next;
+    if (!stage || !body || FruityWeatherCard._reducedMotion()) {
+      mutate();
       return;
     }
 
-    // Tapping through days faster than the animation runs would otherwise stack
-    // clones on top of each other.
+    // Tapping faster than the animation runs would otherwise stack clones on
+    // top of each other.
     stage.querySelectorAll('.sheet-body.ghost').forEach((g) => g.remove());
     const ghost = body.cloneNode(true) as HTMLElement;
     ghost.classList.add('ghost');
     stage.appendChild(ghost);
 
-    const dir = next > cur ? 1 : -1;
     const travel = Math.min(stage.getBoundingClientRect().width * 0.16, 90);
 
-    this._sheetDay = next;
+    mutate();
     await this.updateComplete;
 
     // Transform and opacity are animated SEPARATELY on each half. Sharing one
@@ -1419,7 +1490,13 @@ export class FruityWeatherCard extends LitElement {
                    else this._openDaySheet(i);
                  }}>
               <div class="dday">${day}</div>
-              <img class="dicon" src=${this._iconUrl(iconFor(d.condition, i === 0 && this._isNight))} alt=${d.condition ?? ''} />
+              <div class="dcond">
+                <img class="dicon" src=${this._iconUrl(iconFor(d.condition, i === 0 && this._isNight))} alt=${d.condition ?? ''} />
+                ${(() => {
+                  const p = this._dayProb(i);
+                  return p === undefined ? nothing : html`<span class="dprob">${Math.round(p)}%</span>`;
+                })()}
+              </div>
               <div class="dlo">${round(lo)}°</div>
               <div class="track">
                 <div class="bar" style=${`left:${left}%;width:${width}%;background:linear-gradient(90deg, ${tempColor(lo ?? min)}, ${tempColor(hi ?? max)})`}></div>
@@ -1475,6 +1552,20 @@ export class FruityWeatherCard extends LitElement {
             ${svg`<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
               <path d="M9 5 L16 12 L9 19" /></svg>`}
           </button>
+          <button class="snav mode mtemp ${this._sheetMode === 'temp' ? 'on' : ''}"
+                  title="Temperature" aria-label="Temperature"
+                  aria-pressed=${this._sheetMode === 'temp'}
+                  @click=${() => this._setSheetMode('temp')}>
+            ${svg`<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M14 14.8V5a2 2 0 1 0-4 0v9.8a4 4 0 1 0 4 0z" /></svg>`}
+          </button>
+          <button class="snav mode mprecip ${this._sheetMode === 'precip' ? 'on' : ''}"
+                  title="Chance of precipitation" aria-label="Chance of precipitation"
+                  aria-pressed=${this._sheetMode === 'precip'}
+                  @click=${() => this._setSheetMode('precip')}>
+            ${svg`<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M12 3.5c3.2 3.6 5.5 6.6 5.5 9.4a5.5 5.5 0 0 1-11 0c0-2.8 2.3-5.8 5.5-9.4z" /></svg>`}
+          </button>
           <div class="sheet-stage">
             <div class="sheet-body">
               <div class="sheet-date">
@@ -1509,31 +1600,47 @@ export class FruityWeatherCard extends LitElement {
       return html`<div class="sheet-note">No hourly forecast for this day.</div>`;
     }
 
-    const temps = hours.map((h) => h.temp);
-    const hi = Math.max(...temps);
-    const lo = Math.min(...temps);
-    const hiAt = hours[temps.indexOf(hi)];
-    const loAt = hours[temps.indexOf(lo)];
+    const precip = this._sheetMode === 'precip';
+    const suffix = precip ? '%' : '°';
+    const values = hours.map((h) => (precip ? h.precipProb : h.temp));
+    const hi = Math.max(...values);
+    const lo = Math.min(...values);
+    const hiAt = hours[values.indexOf(hi)];
+    const loAt = hours[values.indexOf(lo)];
 
-    // Round the axis outward to whole 5s so the gridlines read as clean values,
-    // and keep a floor on the span or a flat day fills the whole box with noise.
-    const step = 5;
-    const axisLo = Math.floor(lo / step) * step;
-    const axisHi = Math.ceil(hi / step) * step;
-    const axisSpan = Math.max(axisHi - axisLo, step);
-
-    // At most four labels. Only the LABELS are thinned — the bounds above stay
-    // rounded tight to the day's own range, so the curve keeps filling the box.
-    // Widening the scale instead (picking a coarser step and re-rounding to it)
-    // does cut the label count, but a 31° day was scaled to 40° and the curve
-    // shrank to two thirds of the height for no reason the reader can see.
-    // Labels are multiples of 5 stepped down from the top, so they stay whole
-    // numbers whatever the multiplier.
-    const MAX_TICKS = 4;
-    let labelStep = step;
-    while (Math.floor(axisSpan / labelStep) + 1 > MAX_TICKS) labelStep += step;
+    let axisLo: number;
+    let axisHi: number;
     const ticks: number[] = [];
-    for (let v = axisHi; v >= axisLo - 0.001; v -= labelStep) ticks.push(v);
+    if (precip) {
+      // Probability is drawn against the FULL 0-100 range, never scaled to the
+      // day's own values. A dry day would otherwise be rescaled until a 3%
+      // wobble filled the box and looked like weather; against a fixed scale a
+      // flat line along the bottom is the honest picture.
+      axisLo = 0;
+      axisHi = 100;
+      ticks.push(100, 50, 0);
+    } else {
+      // Round the axis outward to whole 5s so the gridlines read as clean
+      // values, and keep a floor on the span or a flat day fills the box with
+      // noise.
+      const step = 5;
+      axisLo = Math.floor(lo / step) * step;
+      axisHi = Math.ceil(hi / step) * step;
+
+      // At most four labels. Only the LABELS are thinned — the bounds above
+      // stay rounded tight to the day's own range, so the curve keeps filling
+      // the box. Widening the scale instead (picking a coarser step and
+      // re-rounding to it) does cut the label count, but a 31° day was scaled
+      // to 40° and the curve shrank to two thirds of the height for no reason
+      // the reader can see. Labels are multiples of 5 stepped down from the
+      // top, so they stay whole numbers whatever the multiplier.
+      const MAX_TICKS = 4;
+      const span = Math.max(axisHi - axisLo, step);
+      let labelStep = step;
+      while (Math.floor(span / labelStep) + 1 > MAX_TICKS) labelStep += step;
+      for (let v = axisHi; v >= axisLo - 0.001; v -= labelStep) ticks.push(v);
+    }
+    const axisSpan = Math.max(axisHi - axisLo, precip ? 1 : 5);
 
     const n = hours.length;
     const x = (i: number) => (n > 1 ? (i / (n - 1)) * 100 : 50);
@@ -1561,7 +1668,7 @@ export class FruityWeatherCard extends LitElement {
     }
     const isPast = (i: number) => nowIdx !== null && i < nowIdx;
 
-    const pts = hours.map((h, i) => `${x(i)},${y(h.temp)}`).join(' ');
+    const pts = values.map((v, i) => `${x(i)},${y(v)}`).join(' ');
     let pastPts = '';
     let livePts = pts;
     let pastArea = '';
@@ -1570,9 +1677,9 @@ export class FruityWeatherCard extends LitElement {
       const cut = Math.floor(nowIdx);
       const f = nowIdx - cut;
       const nx = x(nowIdx);
-      const ny = y(hours[cut].temp + (hours[cut + 1].temp - hours[cut].temp) * f);
-      const before = hours.slice(0, cut + 1).map((h, i) => `${x(i)},${y(h.temp)}`).join(' ');
-      const after = hours.slice(cut + 1).map((h, k) => `${x(cut + 1 + k)},${y(h.temp)}`).join(' ');
+      const ny = y(values[cut] + (values[cut + 1] - values[cut]) * f);
+      const before = values.slice(0, cut + 1).map((v, i) => `${x(i)},${y(v)}`).join(' ');
+      const after = values.slice(cut + 1).map((v, k) => `${x(cut + 1 + k)},${y(v)}`).join(' ');
       pastPts = `${before} ${nx},${ny}`;
       livePts = `${nx},${ny} ${after}`;
       pastArea = `0,100 ${pastPts} ${nx},100`;
@@ -1586,6 +1693,8 @@ export class FruityWeatherCard extends LitElement {
     // day's H/L step aside rather than competing with it.
     const s = this._hourScrub !== null ? hours[this._hourScrub] : undefined;
 
+    const sVal = this._hourScrub !== null ? values[this._hourScrub] : undefined;
+
     return html`
       <div class="sheet-readout ${s ? 'scrubbing' : ''}">
         ${s
@@ -1594,18 +1703,28 @@ export class FruityWeatherCard extends LitElement {
                 <img class="sheet-cond"
                      src=${this._iconUrl(iconFor(s.condition, this._nightAt(new Date(s.time))))}
                      alt=${s.condition} />
-                <span class="scrub-temp">${round(s.temp)}°</span>
+                <span class="scrub-temp ${precip ? 'precip' : ''}">${round(sVal!)}${suffix}</span>
               </div>
             `
-          : html`
-              <div class="sheet-hilo">
-                <span class="sheet-hi">${round(hi)}°</span><span class="sheet-lo">${round(lo)}°</span>
-                <img class="sheet-cond"
-                     src=${this._iconUrl(iconFor(day.condition, false))} alt="" />
-              </div>
-            `}
+          : precip
+            ? html`
+                <div class="sheet-hilo">
+                  <span class="sheet-hi precip">${round(hi)}%</span>
+                </div>
+              `
+            : html`
+                <div class="sheet-hilo">
+                  <span class="sheet-hi">${round(hi)}°</span><span class="sheet-lo">${round(lo)}°</span>
+                  <img class="sheet-cond"
+                       src=${this._iconUrl(iconFor(day.condition, false))} alt="" />
+                </div>
+              `}
         <div class="sheet-unit">
-          ${s ? this._clockLabel(new Date(s.time)) : (unit === '°F' ? 'Fahrenheit (°F)' : 'Celsius (°C)')}
+          ${s
+            ? this._clockLabel(new Date(s.time))
+            : precip
+              ? 'Chance of precipitation'
+              : (unit === '°F' ? 'Fahrenheit (°F)' : 'Celsius (°C)')}
         </div>
       </div>
 
@@ -1633,12 +1752,19 @@ export class FruityWeatherCard extends LitElement {
           <!-- The conditional shapes below use lit's svg tag, not html: a
                nested html template is parsed in the HTML namespace, so its
                polygon comes out as an unknown HTML element and never paints. -->
-          <svg class="scurve" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <svg class="scurve ${precip ? 'precip' : ''}" viewBox="0 0 100 100" preserveAspectRatio="none">
             <defs>
               <linearGradient id="sfill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#f5a623" stop-opacity="0.75" />
-                <stop offset="55%" stop-color="#57c8c8" stop-opacity="0.40" />
-                <stop offset="100%" stop-color="#3f7fb0" stop-opacity="0.18" />
+                ${precip
+                  ? svg`
+                      <stop offset="0%" stop-color="#5ac8fa" stop-opacity="0.55" />
+                      <stop offset="100%" stop-color="#5ac8fa" stop-opacity="0.06" />
+                    `
+                  : svg`
+                      <stop offset="0%" stop-color="#f5a623" stop-opacity="0.75" />
+                      <stop offset="55%" stop-color="#57c8c8" stop-opacity="0.40" />
+                      <stop offset="100%" stop-color="#3f7fb0" stop-opacity="0.18" />
+                    `}
               </linearGradient>
               <linearGradient id="sfillpast" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stop-color="#9ba4a8" stop-opacity="0.26" />
@@ -1653,7 +1779,11 @@ export class FruityWeatherCard extends LitElement {
               : nothing}
             <polyline points=${livePts} vector-effect="non-scaling-stroke" />
           </svg>
-          ${(() => {
+          ${precip ? nothing : (() => {
+            // H/L belong to temperature. On a probability curve the peak is
+            // already the headline figure and a "low" of 0% says nothing, so
+            // the markers are dropped rather than relabelled.
+            //
             // The caption sits above H and below L, but a peak near the top of
             // the band would push its label into the glyph row and a trough
             // near the bottom would push its label into the hour row. When
@@ -1675,13 +1805,13 @@ export class FruityWeatherCard extends LitElement {
           })()}
           ${s
             ? html`
-                <div class="scrub-line" style=${`left:${x(this._hourScrub!)}%`}></div>
-                <div class="scrub-dot" style=${`left:${x(this._hourScrub!)}%; top:${y(s.temp)}%`}></div>
+                <div class="scrub-line ${precip ? 'precip' : ''}" style=${`left:${x(this._hourScrub!)}%`}></div>
+                <div class="scrub-dot" style=${`left:${x(this._hourScrub!)}%; top:${y(sVal!)}%`}></div>
               `
             : nothing}
         </div>
         <div class="sheet-yaxis">
-          ${ticks.map((v) => html`<span style=${`top:${y(v)}%`}>${round(v)}°</span>`)}
+          ${ticks.map((v) => html`<span style=${`top:${y(v)}%`}>${round(v)}${suffix}</span>`)}
         </div>
       </div>
 
@@ -2210,6 +2340,10 @@ export class FruityWeatherCard extends LitElement {
       --fwc-hairline: rgba(255, 255, 255, 0.14);
       --fwc-dim: rgba(255, 255, 255, 0.62);
       --fwc-dimmer: rgba(255, 255, 255, 0.45);
+      /* Precipitation reads in its own colour wherever it appears — the daily
+         list's chance, the day card's curve and its scrub readout — so the eye
+         can pick it out without a legend. */
+      --fwc-precip: #5ac8fa;
       /*
        * Card geometry is FIXED; only the column count reflows.
        *
@@ -2389,6 +2523,12 @@ export class FruityWeatherCard extends LitElement {
     .snav.next {
       left: calc(var(--daycard-pad-x) + var(--snav-size) + 10px + var(--sheet-date-w) + 10px);
     }
+    /* The series toggle, in the space kept free at the right of the header. */
+    .snav.mtemp { right: calc(var(--daycard-pad-x) + var(--snav-size) + 8px); }
+    .snav.mprecip { right: var(--daycard-pad-x); }
+    .snav.mode { opacity: 0.45; }
+    .snav.mode.on { opacity: 1; background: rgba(255, 255, 255, 0.22); }
+    .snav.mode.mprecip.on { color: var(--fwc-precip); }
     .snav[disabled] { opacity: 0.3; cursor: default; }
     .snav svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
@@ -2450,6 +2590,14 @@ export class FruityWeatherCard extends LitElement {
       stroke: rgba(255, 255, 255, 0.4);
       stroke-dasharray: 4 9;
     }
+    /* Precipitation mode. Only the colour changes — geometry, dashing, the
+       elapsed-hours treatment and the scrub marker are all shared with the
+       temperature curve, so the two read as the same chart showing a different
+       thing rather than as two different charts. */
+    .scurve.precip polyline { stroke: var(--fwc-precip); }
+    .scurve.precip polyline.past { stroke: rgba(255, 255, 255, 0.4); }
+    .scrub-line.precip { border-left-color: var(--fwc-precip); }
+    .sheet-hi.precip, .scrub-temp.precip { color: var(--fwc-precip); }
     .now-line {
       position: absolute;
       top: calc(-1 * (var(--fwc-icon) + 2px));
@@ -3178,11 +3326,28 @@ export class FruityWeatherCard extends LitElement {
        measurement: the least-squares centre reads slightly left on the "Today"
        row, which is the one the eye lands on first. Absolute, not a percentage,
        so it does not scale with the tile. */
+    /* The glyph and its chance of precipitation share one column and are
+       centred together. The row has 26px of slack around a 24px icon, so the
+       caption costs no height — rows stay put whether or not a day carries a
+       figure, which matters because only some days do. */
+    .dcond {
+      justify-self: center;
+      transform: translateX(5px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      line-height: 1;
+    }
     .dicon {
       width: var(--fwc-icon);
       height: var(--fwc-icon);
-      justify-self: center;
-      transform: translateX(5px);
+    }
+    .dprob {
+      margin-top: 1px;
+      font-size: calc(var(--d-font) * 0.72);
+      font-weight: 500;
+      color: var(--fwc-precip);
+      white-space: nowrap;
     }
     .dlo {
       font-size: var(--d-font);

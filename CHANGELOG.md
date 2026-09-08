@@ -1,5 +1,31 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **Chance of precipitation in the daily list.** Each row shows the day's peak probability under its
+  condition glyph. Nothing is printed below 20%: the figure comes from an ensemble that emits a few
+  percent on days forecast bone dry, and a column of 3%/8%/16% says nothing. The caption costs no
+  row height — the row already had 26px of slack around a 24px glyph.
+- **Precipitation curve in the day card**, behind a thermometer/droplet toggle at the right of the
+  header. Temperature is the default on every open, and the choice sticks while the card stays open
+  so stepping through the week keeps showing the same series. Switching uses the same push
+  animation as changing day. The curve shares the temperature chart's geometry, dashed
+  elapsed-hours treatment and scrub readout — only the colour and the scale change.
+- The probability scale is fixed at 0-100% and never rescaled to the day's own range. A dry day
+  would otherwise be stretched until a 3% wobble looked like weather.
+- `pyscript/fruity_weather.py` now also caches the ten-day hourly forecast for the home point, so
+  every device in the house draws the same numbers from one fetch and the card keeps working where
+  the browser cannot reach the internet. The card falls back to calling the API itself when the
+  file is missing, so installs without pyscript are unaffected.
+
+### Fixed
+
+- A cold start could fetch the hourly forecast twice — Home Assistant can tear the card down and
+  rebuild it mid-flight, and the on-disk cache is only written once a fetch finishes. Requests are
+  now deduplicated while in flight, which also covers the card appearing on two dashboards.
+
 ## [2.0.0] - 2026-09-08
 
 ### Added
