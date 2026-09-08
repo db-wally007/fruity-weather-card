@@ -535,7 +535,10 @@ export class FruityWeatherCard extends LitElement {
     const opening = this._sheetDay === null;
     // Only the open changes the grid's shape; switching day just swaps content,
     // and reflowing then would make the tiles twitch for no reason.
-    if (opening) void this._reflowGrid(() => { this._sheetDay = index; });
+    if (opening) {
+      this._pinMap(true);
+      void this._reflowGrid(() => { this._sheetDay = index; });
+    }
     else this._sheetDay = index;
     this._hourScrub = null;
     void this._ensureHourly();
@@ -543,7 +546,7 @@ export class FruityWeatherCard extends LitElement {
 
   private _closeDaySheet(): void {
     this._hourScrub = null;
-    void this._reflowGrid(() => { this._sheetDay = null; });
+    void this._reflowGrid(() => { this._sheetDay = null; }).then(() => this._pinMap(false));
   }
 
   /**
@@ -661,6 +664,39 @@ export class FruityWeatherCard extends LitElement {
     // only when the grid has not arrived yet, in which case _ensureGrid starts
     // it, and when the platform asks for less motion.
     if (this._mapOpen && !reduced) this._autoPlay();
+  }
+
+  /**
+   * Freeze the radar where it currently sits, so opening the day card reflows
+   * everything around it instead of shoving the largest tile across the grid.
+   * The cell is read back from the CURRENT layout rather than hardcoded, so it
+   * stays right at any column count; clearing it lets the tile flow again.
+   */
+  private _pinMap(pin: boolean): void {
+    const grid = this.renderRoot.querySelector('.grid') as HTMLElement | null;
+    const map = this.renderRoot.querySelector('.tile.map') as HTMLElement | null;
+    if (!map) return;
+    if (!pin || !grid || this._mapOpen) {
+      map.style.gridColumn = '';
+      map.style.gridRow = '';
+      return;
+    }
+    const cs = getComputedStyle(grid);
+    const track = parseFloat(cs.gridTemplateColumns.split(' ')[0]);
+    const gap = parseFloat(cs.columnGap || cs.gap) || 0;
+    if (!Number.isFinite(track) || track <= 0) return;
+    const g = grid.getBoundingClientRect();
+    const r = map.getBoundingClientRect();
+    const col = Math.round((r.left - g.left) / (track + gap)) + 1;
+    const row = Math.round((r.top - g.top) / (track + gap)) + 1;
+    // Keep whatever spans it already had rather than assuming. Dropping the ROW
+    // span in particular collapses a two-row tile into one, which forces that
+    // track to the tile's full height and reshuffles everything below it.
+    const ms = getComputedStyle(map);
+    const cSpan = ms.gridColumnEnd && ms.gridColumnEnd !== 'auto' ? ms.gridColumnEnd : 'span 1';
+    const rSpan = ms.gridRowEnd && ms.gridRowEnd !== 'auto' ? ms.gridRowEnd : 'span 1';
+    map.style.gridColumn = `${col} / ${cSpan}`;
+    map.style.gridRow = `${row} / ${rSpan}`;
   }
 
   private static _reducedMotion(): boolean {
@@ -2080,9 +2116,27 @@ export class FruityWeatherCard extends LitElement {
      */
     .daycard {
       position: relative;
-      grid-column: span 3;
-      grid-row: span 2;
+      /*
+       * EXPLICIT placement, never auto. As an auto-placed 3x2 item under dense
+       * auto-flow the browser first resolved it into the bottom
+       * row and only later settled it beside the daily list, so on every open
+       * the card and the tiles visibly swapped places and swapped back — the
+       * flicker at each end of the shuffle. The daily list is two columns wide
+       * and starts at line 1, so this card starts at line 3, always.
+       */
+      grid-column: 3 / span 3;
+      grid-row: 1 / span 2;
       height: calc(var(--fwc-tile) * 2 + var(--fwc-gap));
+      /*
+       * min-height:auto is the default for a grid item, which means its CONTENT
+       * can push the row taller than the height above. While the hourly data
+       * was loading the body briefly measured taller than two rows, the grid
+       * grew by a whole row, and every tile jumped down and back — the flicker
+       * at each end of the shuffle. Pinning min-height to 0 and clipping makes
+       * the declared height authoritative.
+       */
+      min-height: 0;
+      overflow: hidden;
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
@@ -2092,6 +2146,11 @@ export class FruityWeatherCard extends LitElement {
       border: 0.5px solid var(--fwc-hairline);
       transform-origin: left center;
       animation: daycard-in 420ms cubic-bezier(0.34, 1.42, 0.64, 1);
+    }
+    /* Below the breakpoint there is no room for three columns beside a
+       two-column list, so the card becomes a full-width block instead. */
+    @media (max-width: 620px) {
+      .daycard { grid-column: 1 / -1; grid-row: auto / span 2; }
     }
     /* Grows out of the daily list it belongs to rather than blinking into
        existence, on the same spring the reflowing tiles use. */

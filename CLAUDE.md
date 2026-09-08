@@ -63,6 +63,19 @@ and it becomes a full-width block below), its height matches the daily panel's
 pinned `tile*2 + gap`, and the notch's fill reads the same `--sheet-bg` the card
 paints with so the two cannot drift to different darks.
 
+**Its grid position is EXPLICIT (`grid-column: 3 / span 3; grid-row: 1 / span 2`)
+and must stay that way.** Auto-placed under dense auto-flow, the browser first
+resolved this 3x2 item into the bottom row and only settled it beside the daily
+list on a later pass — so every open showed the card and the tiles swapping
+places and swapping back. That was the "flicker at the start and end of the
+shuffle", and it is not fixable by tuning the animation; only a definite
+placement removes it.
+
+**The radar is pinned while the card is open** (`_pinMap`), reading its cell back
+from the live layout rather than hardcoding one. Preserve BOTH spans when
+pinning — dropping the row span collapses a two-row tile into one and forces
+that track to the tile's full height.
+
 ### Bubble pop-ups cannot pass CSS variables to a hosted card
 
 Bubble rewrites pop-up `styles:` selectors with a `:not(.bubble-cards-grid-container, …)` that
