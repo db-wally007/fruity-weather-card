@@ -1527,11 +1527,11 @@ export class FruityWeatherCard extends LitElement {
             const yHi = y(hi);
             const yLo = y(lo);
             return html`
-              <div class="smark hi ${s ? 'muted' : ''} ${yHi < 22 ? 'flip' : ''}"
+              <div class="smark hi ${yHi < 22 ? 'flip' : ''}"
                    style=${`left:${x(hours.indexOf(hiAt))}%; top:${yHi}%`}>
                 <span>H</span>
               </div>
-              <div class="smark lo ${s ? 'muted' : ''} ${yLo > 78 ? 'flip' : ''}"
+              <div class="smark lo ${yLo > 78 ? 'flip' : ''}"
                    style=${`left:${x(hours.indexOf(loAt))}%; top:${yLo}%`}>
                 <span>L</span>
               </div>
@@ -2279,11 +2279,13 @@ export class FruityWeatherCard extends LitElement {
       color: var(--fwc-dimmer);
       /* These sit over the fill at one end of the curve and over the card at
          the other, so neither a light nor a dark colour alone stays legible.
-         A dark halo keeps the glyph readable against both without changing the
-         colour, which is matched to the temperature scale. */
+         A soft dark halo — wide and diffuse rather than a tight outline, which
+         read as a hard edge — darkens whatever is behind the glyph without
+         changing its colour, which is matched to the temperature scale. */
       text-shadow:
-        0 0 3px rgba(0, 0, 0, 0.9),
-        0 0 6px rgba(0, 0, 0, 0.65);
+        0 0 5px rgba(0, 0, 0, 0.95),
+        0 0 11px rgba(0, 0, 0, 0.85),
+        0 0 20px rgba(0, 0, 0, 0.6);
     }
     .smark.hi span { bottom: 13px; }
     .smark.lo span { top: 13px; }
@@ -2311,13 +2313,12 @@ export class FruityWeatherCard extends LitElement {
       font-size: var(--d-font);
       white-space: nowrap;
     }
-    /* Same proportion the sunrise/sunset tile uses between its time and its
-       period marker (24 against 35.7), rather than a fixed 2px drop that barely
-       read at this size. */
+    /* Between the sunrise/sunset tile's proportion (0.67), which read too small
+       here, and a 2px drop, which barely read at all. */
     .sheet-xaxis .ap {
       position: static;
       transform: none;
-      font-size: calc(var(--d-font) * 0.67);
+      font-size: calc(var(--d-font) * 0.75);
     }
     /* Edge labels are pinned inward; centred on 0% or 100% half of each would
        fall outside the sheet's padding box and be clipped. */
@@ -2363,9 +2364,6 @@ export class FruityWeatherCard extends LitElement {
     .scrub-temp { font-size: 34px; font-weight: 500; letter-spacing: -0.5px; }
     .sheet-hilo.scrubbing { display: flex; align-items: center; }
     .sheet-hilo.scrubbing .sheet-cond { margin-left: 0; margin-right: 2px; }
-    /* Dimmed rather than removed: the reference keeps H and L on the curve
-       while a finger is down, so the day's shape stays readable. */
-    .smark.muted { opacity: 0.45; }
     /* Climbs out of the plot, past the glyph row, to meet the readout it is
        driving — the plot sets no overflow, so the overhang paints. The offset
        is the glyph row plus its margins, kept in the same terms as they are. */
