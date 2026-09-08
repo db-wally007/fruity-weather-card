@@ -1519,14 +1519,24 @@ export class FruityWeatherCard extends LitElement {
             <polygon points=${area} fill="url(#sfill)" />
             <polyline points=${pts} vector-effect="non-scaling-stroke" />
           </svg>
-          <div class="smark hi ${s ? 'muted' : ''}"
-               style=${`left:${x(hours.indexOf(hiAt))}%; top:${y(hi)}%`}>
-            <span>H</span>
-          </div>
-          <div class="smark lo ${s ? 'muted' : ''}"
-               style=${`left:${x(hours.indexOf(loAt))}%; top:${y(lo)}%`}>
-            <span>L</span>
-          </div>
+          ${(() => {
+            // The caption sits above H and below L, but a peak near the top of
+            // the band would push its label into the glyph row and a trough
+            // near the bottom would push its label into the hour row. When
+            // there is no room on the usual side, put it on the other one.
+            const yHi = y(hi);
+            const yLo = y(lo);
+            return html`
+              <div class="smark hi ${s ? 'muted' : ''} ${yHi < 22 ? 'flip' : ''}"
+                   style=${`left:${x(hours.indexOf(hiAt))}%; top:${yHi}%`}>
+                <span>H</span>
+              </div>
+              <div class="smark lo ${s ? 'muted' : ''} ${yLo > 78 ? 'flip' : ''}"
+                   style=${`left:${x(hours.indexOf(loAt))}%; top:${yLo}%`}>
+                <span>L</span>
+              </div>
+            `;
+          })()}
           ${s
             ? html`
                 <div class="scrub-line" style=${`left:${x(this._hourScrub!)}%`}></div>
@@ -1540,8 +1550,8 @@ export class FruityWeatherCard extends LitElement {
       </div>
 
       <div class="sheet-xaxis">
-        ${hours.map((h, i) => (h.hour % 6 === 0
-          ? html`<span class=${i === 0 ? 'first' : i === n - 1 ? 'last' : ''}
+        ${hours.map((h, i) => (h.hour % 6 === 0 && h.hour !== 0
+          ? html`<span class=${i === n - 1 ? 'last' : ''}
                        style=${`left:${x(i)}%`}>${this._hourLabel(h.hour)}</span>`
           : nothing))}
       </div>
@@ -2176,7 +2186,10 @@ export class FruityWeatherCard extends LitElement {
       align-items: center;
       gap: 8px;
     }
-    .sheet-date { flex: 1; text-align: center; font-size: calc(var(--d-font) * 0.85); font-weight: 500; }
+        /* Typography below is matched to its counterpart in the daily list, so the
+       two cards read as one: date to .dday, the scale to .dlo, the hour row to
+       .dhi. Sizes come from the same --d-font token rather than being restated. */
+    .sheet-date { flex: 1; text-align: center; font-size: var(--d-font); }
     .snav {
       display: grid;
       place-items: center;
@@ -2214,7 +2227,7 @@ export class FruityWeatherCard extends LitElement {
     .sheet-glyphs {
       position: relative;
       height: var(--fwc-icon);
-      margin: 12px 34px 2px 0;
+      margin: 12px 42px 2px 0;
     }
     .sglyph {
       position: absolute;
@@ -2252,31 +2265,33 @@ export class FruityWeatherCard extends LitElement {
       position: absolute;
       left: 50%;
       transform: translateX(-50%);
-      font-size: calc(var(--d-font) * 0.85);
-      font-weight: 600;
-      color: var(--fwc-dim);
+      font-size: var(--d-font);
+      color: var(--fwc-dimmer);
     }
     .smark.hi span { bottom: 13px; }
     .smark.lo span { top: 13px; }
-    .sheet-yaxis { position: relative; width: 34px; flex: none; }
+    .smark.hi.flip span { bottom: auto; top: 13px; }
+    .smark.lo.flip span { top: auto; bottom: 13px; }
+    .sheet-yaxis { position: relative; width: 42px; flex: none; }
     .sheet-yaxis span {
       position: absolute;
       right: 0;
       transform: translateY(-50%);
-      font-size: calc(var(--d-font) * 0.85);
+      font-size: var(--d-font);
       font-variant-numeric: tabular-nums;
-      color: var(--fwc-dim);
+      color: var(--fwc-dimmer);
     }
     .sheet-xaxis {
       position: relative;
       height: 18px;
-      margin: 6px 34px 0 0;
+      /* Dropped clear of the plot: an L marker sitting on the bottom gridline
+         was crowding the hour beneath it. */
+      margin: 11px 42px 0 0;
     }
     .sheet-xaxis span {
       position: absolute;
       transform: translateX(-50%);
-      font-size: calc(var(--d-font) * 0.85);
-      color: var(--fwc-dim);
+      font-size: var(--d-font);
       white-space: nowrap;
     }
     /* Edge labels are pinned inward; centred on 0% or 100% half of each would

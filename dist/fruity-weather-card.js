@@ -5,7 +5,7 @@ const ge = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABaCAMAAABwp6PBAA
  * SPDX-License-Identifier: BSD-3-Clause
  */
 const st = globalThis, pt = st.ShadowRoot && (st.ShadyCSS === void 0 || st.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype, gt = Symbol(), St = /* @__PURE__ */ new WeakMap();
-let jt = class {
+let zt = class {
   constructor(t, i, s) {
     if (this._$cssResult$ = !0, s !== gt) throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");
     this.cssText = t, this.t = i;
@@ -23,13 +23,13 @@ let jt = class {
     return this.cssText;
   }
 };
-const zt = (e) => new jt(typeof e == "string" ? e : e + "", void 0, gt), $e = (e, ...t) => {
+const jt = (e) => new zt(typeof e == "string" ? e : e + "", void 0, gt), $e = (e, ...t) => {
   const i = e.length === 1 ? e[0] : t.reduce((s, a, o) => s + ((r) => {
     if (r._$cssResult$ === !0) return r.cssText;
     if (typeof r == "number") return r;
     throw Error("Value passed to 'css' function must be a 'css' function result: " + r + ". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.");
   })(a) + e[o + 1], e[0]);
-  return new jt(i, e, gt);
+  return new zt(i, e, gt);
 }, De = (e, t) => {
   if (pt) e.adoptedStyleSheets = t.map((i) => i instanceof CSSStyleSheet ? i : i.styleSheet);
   else for (const i of t) {
@@ -39,14 +39,14 @@ const zt = (e) => new jt(typeof e == "string" ? e : e + "", void 0, gt), $e = (e
 }, Ot = pt ? (e) => e : (e) => e instanceof CSSStyleSheet ? ((t) => {
   let i = "";
   for (const s of t.cssRules) i += s.cssText;
-  return zt(i);
+  return jt(i);
 })(e) : e;
 /**
  * @license
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const { is: Re, defineProperty: Ie, getOwnPropertyDescriptor: Te, getOwnPropertyNames: Pe, getOwnPropertySymbols: He, getPrototypeOf: Ue } = Object, ht = globalThis, Bt = ht.trustedTypes, Qe = Bt ? Bt.emptyScript : "", je = ht.reactiveElementPolyfillSupport, G = (e, t) => e, at = { toAttribute(e, t) {
+const { is: Re, defineProperty: Ie, getOwnPropertyDescriptor: Te, getOwnPropertyNames: Pe, getOwnPropertySymbols: He, getPrototypeOf: Ue } = Object, ht = globalThis, Bt = ht.trustedTypes, Qe = Bt ? Bt.emptyScript : "", ze = ht.reactiveElementPolyfillSupport, G = (e, t) => e, at = { toAttribute(e, t) {
   switch (t) {
     case Boolean:
       e = e ? Qe : null;
@@ -76,7 +76,7 @@ const { is: Re, defineProperty: Ie, getOwnPropertyDescriptor: Te, getOwnProperty
   return i;
 } }, ut = (e, t) => !Re(e, t), Et = { attribute: !0, type: String, converter: at, reflect: !1, useDefault: !1, hasChanged: ut };
 Symbol.metadata ??= Symbol("metadata"), ht.litPropertyMetadata ??= /* @__PURE__ */ new WeakMap();
-let j = class extends HTMLElement {
+let z = class extends HTMLElement {
   static addInitializer(t) {
     this._$Ei(), (this.l ??= []).push(t);
   }
@@ -257,13 +257,13 @@ let j = class extends HTMLElement {
   firstUpdated(t) {
   }
 };
-j.elementStyles = [], j.shadowRootOptions = { mode: "open" }, j[G("elementProperties")] = /* @__PURE__ */ new Map(), j[G("finalized")] = /* @__PURE__ */ new Map(), je?.({ ReactiveElement: j }), (ht.reactiveElementVersions ??= []).push("2.1.2");
+z.elementStyles = [], z.shadowRootOptions = { mode: "open" }, z[G("elementProperties")] = /* @__PURE__ */ new Map(), z[G("finalized")] = /* @__PURE__ */ new Map(), ze?.({ ReactiveElement: z }), (ht.reactiveElementVersions ??= []).push("2.1.2");
 /**
  * @license
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const At = globalThis, Mt = (e) => e, ot = At.trustedTypes, $t = ot ? ot.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, Lt = "$lit$", R = `lit$${Math.random().toFixed(9).slice(2)}$`, Nt = "?" + R, ze = `<${Nt}>`, U = document, q = () => U.createComment(""), W = (e) => e === null || typeof e != "object" && typeof e != "function", ft = Array.isArray, Le = (e) => ft(e) || typeof e?.[Symbol.iterator] == "function", ct = `[ 	
+const At = globalThis, Mt = (e) => e, ot = At.trustedTypes, $t = ot ? ot.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, Lt = "$lit$", R = `lit$${Math.random().toFixed(9).slice(2)}$`, Nt = "?" + R, je = `<${Nt}>`, U = document, q = () => U.createComment(""), W = (e) => e === null || typeof e != "object" && typeof e != "function", ft = Array.isArray, Le = (e) => ft(e) || typeof e?.[Symbol.iterator] == "function", ct = `[ 	
 \f\r]`, Y = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Dt = /-->/g, Rt = />/g, I = RegExp(`>|${ct}(?:([^\\s"'>=/]+)(${ct}*=${ct}*(?:[^ 	
 \f\r"'\`<>=]|("|')|))|$)`, "g"), It = /'/g, Tt = /"/g, Ft = /^(?:script|style|textarea|title)$/i, Xt = (e) => (t, ...i) => ({ _$litType$: e, strings: t, values: i }), m = Xt(1), T = Xt(2), L = Symbol.for("lit-noChange"), w = Symbol.for("lit-nothing"), Pt = /* @__PURE__ */ new WeakMap(), H = U.createTreeWalker(U, 129);
 function Yt(e, t) {
@@ -278,7 +278,7 @@ const Ne = (e, t) => {
     let l, p, n = -1, c = 0;
     for (; c < d.length && (r.lastIndex = c, p = r.exec(d), p !== null); ) c = r.lastIndex, r === Y ? p[1] === "!--" ? r = Dt : p[1] !== void 0 ? r = Rt : p[2] !== void 0 ? (Ft.test(p[2]) && (a = RegExp("</" + p[2], "g")), r = I) : p[3] !== void 0 && (r = I) : r === I ? p[0] === ">" ? (r = a ?? Y, n = -1) : p[1] === void 0 ? n = -2 : (n = r.lastIndex - p[2].length, l = p[1], r = p[3] === void 0 ? I : p[3] === '"' ? Tt : It) : r === Tt || r === It ? r = I : r === Dt || r === Rt ? r = Y : (r = I, a = void 0);
     const g = r === I && e[h + 1].startsWith("/>") ? " " : "";
-    o += r === Y ? d + ze : n >= 0 ? (s.push(l), d.slice(0, n) + Lt + d.slice(n) + R + g) : d + R + (n === -2 ? h : g);
+    o += r === Y ? d + je : n >= 0 ? (s.push(l), d.slice(0, n) + Lt + d.slice(n) + R + g) : d + R + (n === -2 ? h : g);
   }
   return [Yt(e, o + (e[i] || "<?>") + (t === 2 ? "</svg>" : t === 3 ? "</math>" : "")), s];
 };
@@ -295,8 +295,8 @@ class Z {
     for (; (a = H.nextNode()) !== null && d.length < h; ) {
       if (a.nodeType === 1) {
         if (a.hasAttributes()) for (const n of a.getAttributeNames()) if (n.endsWith(Lt)) {
-          const c = p[r++], g = a.getAttribute(n).split(R), A = /([.?@])?(.*)/.exec(c);
-          d.push({ type: 1, index: o, name: A[2], strings: g, ctor: A[1] === "." ? Xe : A[1] === "?" ? Ye : A[1] === "@" ? Ve : lt }), a.removeAttribute(n);
+          const c = p[r++], g = a.getAttribute(n).split(R), f = /([.?@])?(.*)/.exec(c);
+          d.push({ type: 1, index: o, name: f[2], strings: g, ctor: f[1] === "." ? Xe : f[1] === "?" ? Ye : f[1] === "@" ? Ve : lt }), a.removeAttribute(n);
         } else n.startsWith(R) && (d.push({ type: 6, index: o }), a.removeAttribute(n));
         if (Ft.test(a.tagName)) {
           const n = a.textContent.split(R), c = n.length - 1;
@@ -494,7 +494,7 @@ const Ke = (e, t, i) => {
  * SPDX-License-Identifier: BSD-3-Clause
  */
 const mt = globalThis;
-class K extends j {
+class K extends z {
   constructor() {
     super(...arguments), this.renderOptions = { host: this }, this._$Do = void 0;
   }
@@ -570,18 +570,18 @@ function Vt(e) {
 function E(e) {
   return Vt({ ...e, state: !0, attribute: !1 });
 }
-const C = 13, O = 11, F = 0.48, X = 0.375;
+const S = 13, O = 11, F = 0.48, X = 0.375;
 function ei(e, t) {
   return {
     north: e + (O - 1) / 2 * X,
     south: e - (O - 1) / 2 * X,
-    west: t - (C - 1) / 2 * F,
-    east: t + (C - 1) / 2 * F
+    west: t - (S - 1) / 2 * F,
+    east: t + (S - 1) / 2 * F
   };
 }
 const ii = "/local/fruity-weather-card/precip-grid.json";
 function Jt(e) {
-  return e.nx === C && e.ny === O && Math.abs((e.dlon ?? 0) - F) < 1e-6 && Math.abs((e.dlat ?? 0) - X) < 1e-6;
+  return e.nx === S && e.ny === O && Math.abs((e.dlon ?? 0) - F) < 1e-6 && Math.abs((e.dlat ?? 0) - X) < 1e-6;
 }
 async function si(e, t) {
   try {
@@ -595,7 +595,7 @@ async function si(e, t) {
         s.ny,
         s.dlon,
         s.dlat,
-        C,
+        S,
         O,
         F,
         X
@@ -620,20 +620,20 @@ async function ai(e, t) {
   if (i) return i;
   const s = [], a = [];
   for (let b = 0; b < O; b++)
-    for (let u = 0; u < C; u++)
-      s.push((e + (b - (O - 1) / 2) * X).toFixed(4)), a.push((t + (u - (C - 1) / 2) * F).toFixed(4));
+    for (let u = 0; u < S; u++)
+      s.push((e + (b - (O - 1) / 2) * X).toFixed(4)), a.push((t + (u - (S - 1) / 2) * F).toFixed(4));
   const o = `https://api.open-meteo.com/v1/forecast?latitude=${s.join(",")}&longitude=${a.join(",")}&hourly=precipitation&forecast_hours=13&minutely_15=precipitation&forecast_minutely_15=8&timezone=UTC`, r = oi(e, t);
   if (r) return r;
   const h = await fetch(o);
   if (!h.ok) throw new Error(`open-meteo ${h.status}`);
   const d = await h.json(), l = Array.isArray(d) ? d : [d];
-  if (l.length !== C * O)
-    throw new Error(`open-meteo returned ${l.length} of ${C * O} points`);
+  if (l.length !== S * O)
+    throw new Error(`open-meteo returned ${l.length} of ${S * O} points`);
   const p = (b) => (/* @__PURE__ */ new Date(`${b}Z`)).getTime(), n = l[0].hourly.time.map(p), c = l[0].minutely_15.time.map(p), g = (b, u) => Array.from({ length: b }, (x, k) => {
-    const v = new Float32Array(C * O);
-    for (let f = 0; f < l.length; f++) v[f] = u(l[f], k) || 0;
+    const v = new Float32Array(S * O);
+    for (let A = 0; A < l.length; A++) v[A] = u(l[A], k) || 0;
     return v;
-  }), A = {
+  }), f = {
     fetchedAt: Date.now(),
     lat0: e,
     lon0: t,
@@ -646,7 +646,7 @@ async function ai(e, t) {
       frames: g(c.length, (b, u) => b.minutely_15.precipitation[u])
     }
   };
-  return ri(A), A;
+  return ri(f), f;
 }
 const Gt = "fruity-weather-card:precip-grid:v3", Kt = 30 * 6e4;
 function oi(e, t) {
@@ -674,7 +674,7 @@ function ri(e) {
       fetchedAt: e.fetchedAt,
       lat0: e.lat0,
       lon0: e.lon0,
-      nx: C,
+      nx: S,
       ny: O,
       dlon: F,
       dlat: X,
@@ -703,11 +703,11 @@ function li(e, t = "dark") {
   for (let c = l; c <= n; c++)
     if (!(c < 0 || c >= r))
       for (let g = d; g <= p; g++) {
-        const A = (g % r + r) % r;
+        const f = (g % r + r) % r;
         h.push({
-          key: `${s}/${a}/${A}/${c}`,
-          base: `${i}/World_${s}_Gray_Base/MapServer/tile/${a}/${c}/${A}`,
-          ref: `${i}/World_${s}_Gray_Reference/MapServer/tile/${a}/${c}/${A}`,
+          key: `${s}/${a}/${f}/${c}`,
+          base: `${i}/World_${s}_Gray_Base/MapServer/tile/${a}/${c}/${f}`,
+          ref: `${i}/World_${s}_Gray_Reference/MapServer/tile/${a}/${c}/${f}`,
           left: g * o - e.originX,
           top: c * o - e.originY,
           size: o
@@ -715,7 +715,7 @@ function li(e, t = "dark") {
       }
   return h;
 }
-const z = [
+const j = [
   [0, 90, 160, 245, 0],
   [0.08, 90, 160, 245, 60],
   [0.4, 56, 116, 235, 150],
@@ -726,11 +726,11 @@ const z = [
 ];
 function di(e, t, i) {
   let s = 0;
-  for (; s < z.length - 1 && e > z[s + 1][0]; ) s++;
-  const a = z[s], o = z[Math.min(s + 1, z.length - 1)], r = o[0] - a[0], h = r > 0 ? Math.min(1, Math.max(0, (e - a[0]) / r)) : 0;
+  for (; s < j.length - 1 && e > j[s + 1][0]; ) s++;
+  const a = j[s], o = j[Math.min(s + 1, j.length - 1)], r = o[0] - a[0], h = r > 0 ? Math.min(1, Math.max(0, (e - a[0]) / r)) : 0;
   t[i] = a[1] + (o[1] - a[1]) * h, t[i + 1] = a[2] + (o[2] - a[2]) * h, t[i + 2] = a[3] + (o[3] - a[3]) * h, t[i + 3] = a[4] + (o[4] - a[4]) * h;
 }
-const ci = z.slice(1).map(([e, t, i, s]) => `rgb(${t},${i},${s}) ${((e / 15) ** 0.45 * 100).toFixed(0)}%`).join(", ");
+const ci = j.slice(1).map(([e, t, i, s]) => `rgb(${t},${i},${s}) ${((e / 15) ** 0.45 * 100).toFixed(0)}%`).join(", ");
 function pi(e, t, i, s) {
   const a = Math.min(window.devicePixelRatio || 1, 2), o = Math.round(s.width * a), r = Math.round(s.height * a);
   (e.width !== o || e.height !== r) && (e.width = o, e.height = r);
@@ -738,23 +738,23 @@ function pi(e, t, i, s) {
   if (!h) return;
   h.clearRect(0, 0, o, r);
   const d = document.createElement("canvas");
-  d.width = C, d.height = O;
+  d.width = S, d.height = O;
   const l = d.getContext("2d");
   if (!l) return;
-  const p = l.createImageData(C, O);
+  const p = l.createImageData(S, O);
   for (let k = 0; k < O; k++)
-    for (let v = 0; v < C; v++) {
-      const f = (O - 1 - k) * C + v;
-      di(i[f], p.data, (k * C + v) * 4);
+    for (let v = 0; v < S; v++) {
+      const A = (O - 1 - k) * S + v;
+      di(i[A], p.data, (k * S + v) * 4);
     }
   l.putImageData(p, 0, 0);
   const n = document.createElement("canvas");
-  n.width = C * 6, n.height = O * 6;
+  n.width = S * 6, n.height = O * 6;
   const c = n.getContext("2d");
   if (!c) return;
   c.imageSmoothingEnabled = !0, c.imageSmoothingQuality = "high", c.drawImage(d, 0, 0, n.width, n.height);
-  const g = ei(t.lat0, t.lon0), A = (rt(g.west, s.z) * 256 - s.originX) * a, b = (rt(g.east, s.z) * 256 - s.originX) * a, u = (nt(g.north, s.z) * 256 - s.originY) * a, x = (nt(g.south, s.z) * 256 - s.originY) * a;
-  h.imageSmoothingEnabled = !0, h.imageSmoothingQuality = "high", h.drawImage(n, A, u, b - A, x - u);
+  const g = ei(t.lat0, t.lon0), f = (rt(g.west, s.z) * 256 - s.originX) * a, b = (rt(g.east, s.z) * 256 - s.originX) * a, u = (nt(g.north, s.z) * 256 - s.originY) * a, x = (nt(g.south, s.z) * 256 - s.originY) * a;
+  h.imageSmoothingEnabled = !0, h.imageSmoothingQuality = "high", h.drawImage(n, f, u, b - f, x - u);
 }
 function gi(e, t, i, s) {
   for (let a = 0; a < e.length; a++) s[a] = e[a] + (t[a] - e[a]) * i;
@@ -796,8 +796,8 @@ async function mi(e, t, i = !1) {
   for (let n = 0; n < r.length; n++) {
     const c = r[n], g = h[n];
     if (g == null) continue;
-    const A = c.slice(0, 10), b = Number(c.slice(11, 13)), u = (/* @__PURE__ */ new Date(`${c}:00`)).getTime(), x = l.get(A) ?? [];
-    x.push({ hour: b, time: u, temp: g, condition: ui(d[n] ?? 3) }), l.set(A, x);
+    const f = c.slice(0, 10), b = Number(c.slice(11, 13)), u = (/* @__PURE__ */ new Date(`${c}:00`)).getTime(), x = l.get(f) ?? [];
+    x.push({ hour: b, time: u, temp: g, condition: ui(d[n] ?? 3) }), l.set(f, x);
   }
   const p = { fetchedAt: Date.now(), days: l };
   return fi(p), p;
@@ -811,7 +811,7 @@ var yi = Object.defineProperty, bi = Object.getOwnPropertyDescriptor, B = (e, t,
     (r = e[o]) && (a = (s ? r(t, i, a) : r(a)) || a);
   return s && a && yi(t, i, a), a;
 };
-const vi = zt(ci), xi = "/local/weather-bg", _i = {
+const vi = jt(ci), xi = "/local/weather-bg", _i = {
   "clear-night": "night_clear",
   cloudy: "cloudy",
   fog: "fog",
@@ -1356,25 +1356,25 @@ let y = class extends K {
     if (!e || !t) return;
     const i = 864e5, s = Date.now(), a = 0.2, o = 0.8, r = 26, h = 17, d = 11, l = 100, p = (u) => u >= a && u <= o ? Math.sin(Math.PI * (u - a) / (o - a)) : u < a ? -Math.sin(Math.PI * ((a - u) / (2 * a))) : -Math.sin(Math.PI * ((u - o) / (2 * (1 - o)))), n = (u) => r - u * (u >= 0 ? h : d), c = (u, x, k) => {
       const v = [];
-      for (let f = 0; f <= k; f++) {
-        const S = u + (x - u) * f / k;
-        v.push(`${(S * l).toFixed(2)},${n(p(S)).toFixed(2)}`);
+      for (let A = 0; A <= k; A++) {
+        const C = u + (x - u) * A / k;
+        v.push(`${(C * l).toFixed(2)},${n(p(C)).toFixed(2)}`);
       }
       return `M${v.join(" L")}`;
     }, g = (u) => Math.min(Math.max(u, 0), 1);
-    let A;
+    let f;
     if (t < e) {
       const u = e.getTime() - i, x = g((s - u) / (t.getTime() - u));
-      A = a + x * (o - a);
+      f = a + x * (o - a);
     } else {
       const u = t.getTime() - i, x = g((s - u) / (e.getTime() - u));
-      A = x < 0.5 ? o + x / 0.5 * (1 - o) : (x - 0.5) / 0.5 * a;
+      f = x < 0.5 ? o + x / 0.5 * (1 - o) : (x - 0.5) / 0.5 * a;
     }
-    const b = p(A);
+    const b = p(f);
     return {
       nightPath: c(0, 1, 96),
       dayPath: c(a, o, 48),
-      dotX: A * 100,
+      dotX: f * 100,
       dotY: n(b) / 44 * 100,
       isUp: b >= 0
     };
@@ -1494,14 +1494,14 @@ let y = class extends K {
            @pointerdown=${this._markPointer} @click=${d}>
         <div class="panel-head">${e.length}-DAY FORECAST</div>
         ${e.map((l, p) => {
-      const n = D(l.templow), c = D(l.temperature), g = new Date(l.datetime), A = p === 0 ? "Today" : g.toLocaleDateString(h, { weekday: "short" }), b = n === void 0 ? 0 : (n - s) / o * 100, u = n === void 0 || c === void 0 ? 0 : (c - n) / o * 100, x = p === 0 && r !== void 0 ? (r - s) / o * 100 : void 0;
+      const n = D(l.templow), c = D(l.temperature), g = new Date(l.datetime), f = p === 0 ? "Today" : g.toLocaleDateString(h, { weekday: "short" }), b = n === void 0 ? 0 : (n - s) / o * 100, u = n === void 0 || c === void 0 ? 0 : (c - n) / o * 100, x = p === 0 && r !== void 0 ? (r - s) / o * 100 : void 0;
       return m`
             <div class="drow" tappable
                  @pointerdown=${this._markPointer}
                  @click=${(k) => {
         k.stopPropagation(), !this._movedSincePointer(k) && (this._sheetDay === p ? this._closeDaySheet() : this._openDaySheet(p));
       }}>
-              <div class="dday">${A}</div>
+              <div class="dday">${f}</div>
               <img class="dicon" src=${this._iconUrl(V(l.condition, p === 0 && this._isNight))} alt=${l.condition ?? ""} />
               <div class="dlo">${_(n)}°</div>
               <div class="track">
@@ -1575,9 +1575,9 @@ let y = class extends K {
       `;
     if (!e.length)
       return m`<div class="sheet-note">No hourly forecast for this day.</div>`;
-    const s = e.map((f) => f.temp), a = Math.max(...s), o = Math.min(...s), r = e[s.indexOf(a)], h = e[s.indexOf(o)], d = 5, l = Math.floor(o / d) * d, p = Math.ceil(a / d) * d, n = Math.max(p - l, d), c = [];
-    for (let f = p; f >= l - 1e-3; f -= d) c.push(f);
-    const g = e.length, A = (f) => g > 1 ? f / (g - 1) * 100 : 50, b = (f) => (p - f) / n * 100, u = e.map((f, S) => `${A(S)},${b(f.temp)}`).join(" "), x = `0,100 ${u} 100,100`, k = Math.max(1, Math.round(g / 8)), v = this._hourScrub !== null ? e[this._hourScrub] : void 0;
+    const s = e.map((A) => A.temp), a = Math.max(...s), o = Math.min(...s), r = e[s.indexOf(a)], h = e[s.indexOf(o)], d = 5, l = Math.floor(o / d) * d, p = Math.ceil(a / d) * d, n = Math.max(p - l, d), c = [];
+    for (let A = p; A >= l - 1e-3; A -= d) c.push(A);
+    const g = e.length, f = (A) => g > 1 ? A / (g - 1) * 100 : 50, b = (A) => (p - A) / n * 100, u = e.map((A, C) => `${f(C)},${b(A.temp)}`).join(" "), x = `0,100 ${u} 100,100`, k = Math.max(1, Math.round(g / 8)), v = this._hourScrub !== null ? e[this._hourScrub] : void 0;
     return m`
       <div class="sheet-readout ${v ? "scrubbing" : ""}">
         ${v ? m`
@@ -1600,16 +1600,16 @@ let y = class extends K {
       </div>
 
       <div class="sheet-glyphs">
-        ${e.map((f, S) => S % k === 0 ? m`<img class="sglyph ${S === 0 ? "first" : S === g - 1 ? "last" : ""}"
-                      style=${`left:${A(S)}%`}
-                      src=${this._iconUrl(V(f.condition, this._nightAt(new Date(f.time))))}
-                      alt=${f.condition} />` : w)}
+        ${e.map((A, C) => C % k === 0 ? m`<img class="sglyph ${C === 0 ? "first" : C === g - 1 ? "last" : ""}"
+                      style=${`left:${f(C)}%`}
+                      src=${this._iconUrl(V(A.condition, this._nightAt(new Date(A.time))))}
+                      alt=${A.condition} />` : w)}
       </div>
 
       <div class="sheet-chart">
         <div class="sheet-plot"
-             @pointerdown=${(f) => this._scrubAt(f, g)}
-             @pointermove=${(f) => this._scrubAt(f, g)}
+             @pointerdown=${(A) => this._scrubAt(A, g)}
+             @pointermove=${(A) => this._scrubAt(A, g)}
              @pointerup=${() => {
       this._hourScrub = null;
     }}
@@ -1619,8 +1619,8 @@ let y = class extends K {
              @pointerleave=${() => {
       this._hourScrub = null;
     }}>
-          ${c.map((f) => m`
-            <div class="sgl" style=${`top:${b(f)}%`}></div>`)}
+          ${c.map((A) => m`
+            <div class="sgl" style=${`top:${b(A)}%`}></div>`)}
           <svg class="scurve" viewBox="0 0 100 100" preserveAspectRatio="none">
             <defs>
               <linearGradient id="sfill" x1="0" y1="0" x2="0" y2="1">
@@ -1632,27 +1632,32 @@ let y = class extends K {
             <polygon points=${x} fill="url(#sfill)" />
             <polyline points=${u} vector-effect="non-scaling-stroke" />
           </svg>
-          <div class="smark hi ${v ? "muted" : ""}"
-               style=${`left:${A(e.indexOf(r))}%; top:${b(a)}%`}>
-            <span>H</span>
-          </div>
-          <div class="smark lo ${v ? "muted" : ""}"
-               style=${`left:${A(e.indexOf(h))}%; top:${b(o)}%`}>
-            <span>L</span>
-          </div>
+          ${(() => {
+      const A = b(a), C = b(o);
+      return m`
+              <div class="smark hi ${v ? "muted" : ""} ${A < 22 ? "flip" : ""}"
+                   style=${`left:${f(e.indexOf(r))}%; top:${A}%`}>
+                <span>H</span>
+              </div>
+              <div class="smark lo ${v ? "muted" : ""} ${C > 78 ? "flip" : ""}"
+                   style=${`left:${f(e.indexOf(h))}%; top:${C}%`}>
+                <span>L</span>
+              </div>
+            `;
+    })()}
           ${v ? m`
-                <div class="scrub-line" style=${`left:${A(this._hourScrub)}%`}></div>
-                <div class="scrub-dot" style=${`left:${A(this._hourScrub)}%; top:${b(v.temp)}%`}></div>
+                <div class="scrub-line" style=${`left:${f(this._hourScrub)}%`}></div>
+                <div class="scrub-dot" style=${`left:${f(this._hourScrub)}%; top:${b(v.temp)}%`}></div>
               ` : w}
         </div>
         <div class="sheet-yaxis">
-          ${c.map((f) => m`<span style=${`top:${b(f)}%`}>${_(f)}°</span>`)}
+          ${c.map((A) => m`<span style=${`top:${b(A)}%`}>${_(A)}°</span>`)}
         </div>
       </div>
 
       <div class="sheet-xaxis">
-        ${e.map((f, S) => f.hour % 6 === 0 ? m`<span class=${S === 0 ? "first" : S === g - 1 ? "last" : ""}
-                       style=${`left:${A(S)}%`}>${this._hourLabel(f.hour)}</span>` : w)}
+        ${e.map((A, C) => A.hour % 6 === 0 && A.hour !== 0 ? m`<span class=${C === g - 1 ? "last" : ""}
+                       style=${`left:${f(C)}%`}>${this._hourLabel(A.hour)}</span>` : w)}
       </div>
     `;
   }
@@ -1672,8 +1677,8 @@ let y = class extends K {
     if (!i || s < 2) return;
     const a = this._hourScrub / (s - 1);
     e.style.transform = "translateX(0)";
-    const o = e.getBoundingClientRect(), r = t.getBoundingClientRect(), h = i.getBoundingClientRect(), d = getComputedStyle(i), l = parseFloat(d.paddingLeft) || 0, p = parseFloat(d.paddingRight) || 0, n = r.left + a * r.width, c = h.left + l - o.left, g = h.right - p - o.width - o.left, A = Math.min(Math.max(n - o.width / 2 - o.left, c), Math.max(g, c));
-    e.style.transform = `translateX(${Math.round(A)}px)`;
+    const o = e.getBoundingClientRect(), r = t.getBoundingClientRect(), h = i.getBoundingClientRect(), d = getComputedStyle(i), l = parseFloat(d.paddingLeft) || 0, p = parseFloat(d.paddingRight) || 0, n = r.left + a * r.width, c = h.left + l - o.left, g = h.right - p - o.width - o.left, f = Math.min(Math.max(n - o.width / 2 - o.left, c), Math.max(g, c));
+    e.style.transform = `translateX(${Math.round(f)}px)`;
   }
   /** Nearest hour under the pointer, clamped to the series. */
   _scrubAt(e, t) {
@@ -1730,7 +1735,7 @@ let y = class extends K {
     `;
   }
   _renderTiles() {
-    const { rising: e, setting: t } = this._sunTimes(), i = this._override("feels_like", "apparent_temperature"), s = this._override("temperature", "temperature"), a = this._override("humidity", "humidity"), o = this._override("dew_point", "dew_point"), r = this._override("wind_speed", "wind_speed"), h = this._override("wind_gust"), d = this._override("wind_bearing", "wind_bearing"), l = this._override("precipitation_today"), p = this._overrideUnit("wind_speed", "wind_speed_unit") ?? "km/h", n = this._overrideUnit("wind_gust") ?? p, c = e && t ? e < t : !0, g = i === void 0 || s === void 0 ? "" : Math.abs(i - s) < 0.5 ? "Similar to the actual temperature." : i > s ? "It feels warmer than the actual temperature." : "It feels cooler than the actual temperature.", A = this._daily.find((f) => (D(f.precipitation) ?? 0) > 0), b = this.hass?.locale?.language ?? navigator.language, u = A ? D(A.precipitation) ?? 0 : void 0, x = u === void 0 ? "" : `${u < 1 ? "<1" : Math.round(u)} mm`, k = A ? new Date(A.datetime).toDateString() === (/* @__PURE__ */ new Date()).toDateString() : !1, v = x ? k ? `${x} more expected today.` : `Next expected is ${x} ${new Date(A.datetime).toLocaleDateString(b, { weekday: "short" })}.` : "None expected in the next 10 days.";
+    const { rising: e, setting: t } = this._sunTimes(), i = this._override("feels_like", "apparent_temperature"), s = this._override("temperature", "temperature"), a = this._override("humidity", "humidity"), o = this._override("dew_point", "dew_point"), r = this._override("wind_speed", "wind_speed"), h = this._override("wind_gust"), d = this._override("wind_bearing", "wind_bearing"), l = this._override("precipitation_today"), p = this._overrideUnit("wind_speed", "wind_speed_unit") ?? "km/h", n = this._overrideUnit("wind_gust") ?? p, c = e && t ? e < t : !0, g = i === void 0 || s === void 0 ? "" : Math.abs(i - s) < 0.5 ? "Similar to the actual temperature." : i > s ? "It feels warmer than the actual temperature." : "It feels cooler than the actual temperature.", f = this._daily.find((A) => (D(A.precipitation) ?? 0) > 0), b = this.hass?.locale?.language ?? navigator.language, u = f ? D(f.precipitation) ?? 0 : void 0, x = u === void 0 ? "" : `${u < 1 ? "<1" : Math.round(u)} mm`, k = f ? new Date(f.datetime).toDateString() === (/* @__PURE__ */ new Date()).toDateString() : !1, v = x ? k ? `${x} more expected today.` : `Next expected is ${x} ${new Date(f.datetime).toLocaleDateString(b, { weekday: "short" })}.` : "None expected in the next 10 days.";
     return m`
         ${this._renderSunTile(c, e, t)}
         ${this._renderWindTile(r, p, h, n, d)}
@@ -1879,9 +1884,9 @@ let y = class extends K {
               </div>
               <div class="map-ticks">
                 ${h.times.map((c, g) => {
-      const A = this._mapRange === "1h";
-      return !A && g % 2 !== 0 ? w : m`<span>
-                    ${g === 0 ? "Now" : this._timeLabel(new Date(c), A)}
+      const f = this._mapRange === "1h";
+      return !f && g % 2 !== 0 ? w : m`<span>
+                    ${g === 0 ? "Now" : this._timeLabel(new Date(c), f)}
                   </span>`;
     })}
               </div>
@@ -1909,7 +1914,7 @@ let y = class extends K {
       const it = r($), [he, le] = h(31, it), [de, ce] = h(39, it);
       d += `M${he.toFixed(2)},${le.toFixed(2)}L${de.toFixed(2)},${ce.toFixed(2)}`;
     }
-    const l = a !== void 0, p = l ? a + 180 : 0, n = r(p), c = r(p + 180), g = 38, [A, b] = h(g, c), [u, x] = h(g - 3, c), [k, v] = h(24.5, c), [f, S] = h(22.5, n), [Zt, te] = h(30, n), dt = 1.32, wt = (g + 2 + 30) / 2, yt = (g + 2 - 30) / 2 * dt, [ee, ie] = h(wt + yt, n), [bt, vt] = h(wt - yt, n), xt = -Math.sin(n), _t = Math.cos(n), et = 3.4 * dt, se = bt + xt * et, ae = vt + _t * et, oe = bt - xt * et, re = vt - _t * et, ne = (M) => {
+    const l = a !== void 0, p = l ? a + 180 : 0, n = r(p), c = r(p + 180), g = 38, [f, b] = h(g, c), [u, x] = h(g - 3, c), [k, v] = h(24.5, c), [A, C] = h(22.5, n), [Zt, te] = h(30, n), dt = 1.32, wt = (g + 2 + 30) / 2, yt = (g + 2 - 30) / 2 * dt, [ee, ie] = h(wt + yt, n), [bt, vt] = h(wt - yt, n), xt = -Math.sin(n), _t = Math.cos(n), et = 3.4 * dt, se = bt + xt * et, ae = vt + _t * et, oe = bt - xt * et, re = vt - _t * et, ne = (M) => {
       const $ = Math.abs(((p - M) % 360 + 360) % 360);
       return ($ > 180 ? 360 - $ : $) < 12;
     }, kt = this._tap("wind");
@@ -1934,9 +1939,9 @@ let y = class extends K {
             ${l ? T`
               <line class="dial-shaft" x1=${u.toFixed(2)} y1=${x.toFixed(2)}
                     x2=${k.toFixed(2)} y2=${v.toFixed(2)}></line>
-              <line class="dial-shaft" x1=${f.toFixed(2)} y1=${S.toFixed(2)}
+              <line class="dial-shaft" x1=${A.toFixed(2)} y1=${C.toFixed(2)}
                     x2=${Zt.toFixed(2)} y2=${te.toFixed(2)}></line>
-              <circle class="dial-tail" cx=${A.toFixed(2)} cy=${b.toFixed(2)}
+              <circle class="dial-tail" cx=${f.toFixed(2)} cy=${b.toFixed(2)}
                       r=${(3.2 * dt).toFixed(2)}></circle>
               <polygon class="dial-head" points=${`${ee.toFixed(2)},${ie.toFixed(2)} ${se.toFixed(2)},${ae.toFixed(2)} ${oe.toFixed(2)},${re.toFixed(2)}`}></polygon>` : w}
             <!-- Labels and readout draw last so the shaft passes behind them.
@@ -2122,7 +2127,10 @@ y.styles = $e`
       align-items: center;
       gap: 8px;
     }
-    .sheet-date { flex: 1; text-align: center; font-size: calc(var(--d-font) * 0.85); font-weight: 500; }
+        /* Typography below is matched to its counterpart in the daily list, so the
+       two cards read as one: date to .dday, the scale to .dlo, the hour row to
+       .dhi. Sizes come from the same --d-font token rather than being restated. */
+    .sheet-date { flex: 1; text-align: center; font-size: var(--d-font); }
     .snav {
       display: grid;
       place-items: center;
@@ -2160,7 +2168,7 @@ y.styles = $e`
     .sheet-glyphs {
       position: relative;
       height: var(--fwc-icon);
-      margin: 12px 34px 2px 0;
+      margin: 12px 42px 2px 0;
     }
     .sglyph {
       position: absolute;
@@ -2198,31 +2206,33 @@ y.styles = $e`
       position: absolute;
       left: 50%;
       transform: translateX(-50%);
-      font-size: calc(var(--d-font) * 0.85);
-      font-weight: 600;
-      color: var(--fwc-dim);
+      font-size: var(--d-font);
+      color: var(--fwc-dimmer);
     }
     .smark.hi span { bottom: 13px; }
     .smark.lo span { top: 13px; }
-    .sheet-yaxis { position: relative; width: 34px; flex: none; }
+    .smark.hi.flip span { bottom: auto; top: 13px; }
+    .smark.lo.flip span { top: auto; bottom: 13px; }
+    .sheet-yaxis { position: relative; width: 42px; flex: none; }
     .sheet-yaxis span {
       position: absolute;
       right: 0;
       transform: translateY(-50%);
-      font-size: calc(var(--d-font) * 0.85);
+      font-size: var(--d-font);
       font-variant-numeric: tabular-nums;
-      color: var(--fwc-dim);
+      color: var(--fwc-dimmer);
     }
     .sheet-xaxis {
       position: relative;
       height: 18px;
-      margin: 6px 34px 0 0;
+      /* Dropped clear of the plot: an L marker sitting on the bottom gridline
+         was crowding the hour beneath it. */
+      margin: 11px 42px 0 0;
     }
     .sheet-xaxis span {
       position: absolute;
       transform: translateX(-50%);
-      font-size: calc(var(--d-font) * 0.85);
-      color: var(--fwc-dim);
+      font-size: var(--d-font);
       white-space: nowrap;
     }
     /* Edge labels are pinned inward; centred on 0% or 100% half of each would
