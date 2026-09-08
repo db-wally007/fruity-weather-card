@@ -2311,10 +2311,13 @@ export class FruityWeatherCard extends LitElement {
       font-size: var(--d-font);
       white-space: nowrap;
     }
+    /* Same proportion the sunrise/sunset tile uses between its time and its
+       period marker (24 against 35.7), rather than a fixed 2px drop that barely
+       read at this size. */
     .sheet-xaxis .ap {
       position: static;
       transform: none;
-      font-size: calc(var(--d-font) - 2px);
+      font-size: calc(var(--d-font) * 0.67);
     }
     /* Edge labels are pinned inward; centred on 0% or 100% half of each would
        fall outside the sheet's padding box and be clipped. */
