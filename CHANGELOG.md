@@ -1,5 +1,30 @@
 # Changelog
 
+## [3.0.1] - 2026-09-08
+
+### Added
+
+- **Chance of precipitation in the hourly strip**, under each glyph. The row is reserved in every
+  cell, empty where there is nothing to say, so the temperatures stay on one baseline whether or not
+  an hour carries a figure — that shared baseline is what makes the strip scannable.
+- Cells are wider and the vertical rhythm is set as fractions of the glyph rather than in pixels, so
+  the proportions hold at any tile size. The chance sits flush under the glyph with the breathing
+  room below it: grouped that way it reads as an annotation of the glyph rather than a third
+  unrelated row.
+
+### Fixed
+
+- **A glyph and a chance that contradicted each other in the same cell.** Two separate causes, both
+  visible as rain drawn above a blank while cells with no rain carried a figure:
+  - The strip's glyph came from the weather entity while the chance came from Open-Meteo. Measured:
+    met.no called 04:00 `rainy` with 0.5mm, Open-Meteo's ensemble gave that hour 5% and put the
+    chance at 05:00-06:00 instead. The glyph now comes from the same forecast as the chance.
+  - That exposed a second layer within one provider. A condition code is a single deterministic
+    run; a probability is an ensemble of perturbed ones, and they disagree — one fetch gave
+    `cloudy` at 35% alongside `rainy` at 18%. A figure is now printed whenever the glyph depicts
+    precipitation, however small, as well as whenever the number is worth reading on its own. The
+    same rule applies to the daily list.
+
 ## [3.0.0] - 2026-09-08
 
 ### Added

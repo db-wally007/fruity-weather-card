@@ -11,8 +11,9 @@ strip, the range bars, the sun arc, the wind rose and the map are all drawn by t
 
 - **Hero** — condition artwork behind the location, temperature, condition and today's high/low.
   26 scenes, one per Home Assistant condition, with separate night variants.
-- **Hourly strip** — the next N hours, with `Sunrise` and `Sunset` inserted as their own cells at
-  the right position in the sequence.
+- **Hourly strip** — the next N hours, each with its condition, chance of precipitation and
+  temperature, and with `Sunrise` and `Sunset` inserted as their own cells at the right position in
+  the sequence.
 - **Daily list** — N days with a low→high range bar coloured by temperature.
 - **Detail tiles** — sunrise/sunset arc, wind rose, precipitation, feels-like, humidity. Each can
   read a real sensor rather than the forecast, and each can be given its own tap action.
@@ -249,9 +250,15 @@ The thermometer/droplet buttons at the right of the header switch the chart betw
 sticks while it stays open, so stepping through the days keeps showing the same series. The
 probability scale is always 0–100%, never rescaled to the day, so a dry day looks dry.
 
-Each row of the daily list also carries its day's peak chance under the condition glyph. Days below
-20% show nothing — the figure comes from an ensemble that reports a few percent even on days
-forecast completely dry.
+Each row of the daily list, and each cell of the hourly strip, also carries its chance under the
+condition glyph. Days and hours below 20% show nothing — the figure comes from an ensemble that
+reports a few percent even when the forecast is completely dry — **unless** the glyph itself depicts
+precipitation, in which case the figure is always printed. A rain glyph over a blank would look
+broken, and a condition and a probability can genuinely disagree: the condition is one deterministic
+model run while the probability counts an ensemble of them.
+
+In the strip, the glyph comes from the same forecast as the chance so the two cannot contradict each
+other; the temperature still comes from your weather entity.
 
 **Where the probability comes from, and its resolution.** No Home Assistant weather integration
 publishes it — not met.no (the field is absent from their API outside the Nordics, not merely

@@ -45,6 +45,22 @@ const unsafeGradient = unsafeCSS(LEGEND_GRADIENT);
  */
 const PROB_MIN = 20;
 
+/**
+ * Conditions whose glyph depicts falling precipitation. A cell showing one of
+ * these ALWAYS prints its chance, however small.
+ *
+ * Needed because a provider's condition and its probability come from different
+ * products: the condition is one deterministic run, the probability an ensemble
+ * of perturbed ones, and they disagree. Observed on a single Open-Meteo fetch —
+ * 05:00 `cloudy` at 35%, 07:00 `rainy` at 18%, 08:00 `rainy` at 8%. Thresholding
+ * on the number alone printed a figure beside a dry glyph and left the two rainy
+ * ones blank, which is exactly the mismatch this rule exists to prevent: in the
+ * reference design every wet glyph carries a number and no dry one does.
+ */
+const WET_CONDITIONS = new Set([
+  'rainy', 'pouring', 'snowy', 'snowy-rainy', 'hail', 'lightning', 'lightning-rainy',
+]);
+
 /** Which series the day card charts. */
 type SheetMode = 'temp' | 'precip';
 
@@ -213,7 +229,7 @@ interface CardConfig {
 
 /** One cell of the hourly strip — either a real hour or a sun event. */
 type HourCell =
-  | { kind: 'hour'; time: Date; label: TemplateResult; condition: string; temp?: number }
+  | { kind: 'hour'; time: Date; label: TemplateResult; condition: string; temp?: number; prob?: number }
   | { kind: 'sun'; time: Date; label: TemplateResult; event: 'sunrise' | 'sunset' };
 
 // ---------------------------------------------------------------------------
@@ -578,7 +594,38 @@ export class FruityWeatherCard extends LitElement {
     const day = this._daily[index];
     if (!day || !this._hourlyDays) return undefined;
     const p = this._hourlyDays.dayProb.get(localDateKey(new Date(day.datetime)));
-    return p !== undefined && p >= PROB_MIN ? p : undefined;
+    return this._printableProb(day.condition, p);
+  }
+
+  /**
+   * The chance to print beside a glyph, or undefined to print nothing.
+   *
+   * Two ways in: a figure worth reading on its own, or a glyph that depicts
+   * precipitation — which must never appear over a blank, whatever the number.
+   * See WET_CONDITIONS for why the two can disagree.
+   */
+  private _printableProb(condition: string | undefined, prob: number | undefined): number | undefined {
+    if (prob === undefined) return undefined;
+    if (prob >= PROB_MIN) return prob;
+    return condition && WET_CONDITIONS.has(condition) ? prob : undefined;
+  }
+
+  /**
+   * The Open-Meteo hour matching `t`, for the strip.
+   *
+   * The strip's hours come from the Home Assistant weather entity while this
+   * data comes from Open-Meteo, so the two series have to be JOINED — and on
+   * the hour they start, never on position. The entity's first entry is
+   * whatever hour the integration happens to be publishing from, so the arrays
+   * do not line up at index 0 and would silently drift by an hour or more.
+   */
+  private _hourAt(t: Date): HourPoint | undefined {
+    if (!this._hourlyDays) return undefined;
+    const list = this._hourlyDays.days.get(localDateKey(t));
+    if (!list) return undefined;
+    const floor = new Date(t);
+    floor.setMinutes(0, 0, 0);
+    return list.find((h) => h.time === floor.getTime());
   }
 
   private _openDaySheet(index: number): void {
@@ -1380,12 +1427,24 @@ export class FruityWeatherCard extends LitElement {
     this._hourly.forEach((f, i) => {
       const t = new Date(f.datetime);
       if (t.getTime() > end) return;
+      // The glyph is taken from the SAME forecast as the percentage, not from
+      // the weather entity, because the two models disagree and putting both
+      // opinions in one cell shows it. Observed: met.no called 04:00 `rainy`
+      // with 0.5mm while Open-Meteo's ensemble put the chance at 05:00-06:00
+      // and gave 04:00 5% — so the cell drew rain above a blank, and the two
+      // cells that did carry a figure drew no rain. Whichever model is right,
+      // one cell must speak with one voice. The temperature stays on the
+      // entity: it is the card's headline source everywhere else, and a
+      // temperature cannot visibly contradict a probability the way a glyph can.
+      const om = this._hourAt(t);
+      const condition = om?.condition ?? f.condition ?? '';
       cells.push({
         kind: 'hour',
         time: t,
         label: i === 0 ? html`Now` : this._timeLabel(t),
-        condition: f.condition ?? '',
+        condition,
         temp: num(f.temperature),
+        prob: this._printableProb(condition, om?.precipProb),
       });
     });
 
@@ -1417,12 +1476,14 @@ export class FruityWeatherCard extends LitElement {
                 <div class="cell">
                   <div class="cell-label">${c.label}</div>
                   <img class="cell-icon" src=${this._iconUrl(ICON_SUN_EVENT[c.event])} alt=${c.event} />
+                  <div class="cell-prob"></div>
                   <div class="cell-val sun">${c.event === 'sunrise' ? 'Sunrise' : 'Sunset'}</div>
                 </div>`
             : html`
                 <div class="cell">
                   <div class="cell-label">${c.label}</div>
                   <img class="cell-icon" src=${this._iconUrl(iconFor(c.condition, this._nightAt(c.time)))} alt=${c.condition} />
+                  <div class="cell-prob">${c.prob === undefined ? nothing : html`${Math.round(c.prob)}%`}</div>
                   <div class="cell-val">${round(c.temp)}°</div>
                 </div>`)}
         </div>
@@ -2863,9 +2924,11 @@ export class FruityWeatherCard extends LitElement {
       -webkit-overflow-scrolling: touch;
     }
     .row::-webkit-scrollbar { display: none; }
+    /* Widened from 0.40 to give the glyph and a three-character percentage room
+       to sit under each other without either touching the neighbouring cell. */
     .cell {
       flex: 0 0 auto;
-      min-width: calc(var(--fwc-tile) * 0.40);
+      min-width: calc(var(--fwc-tile) * 0.46);
       text-align: center;
       padding: 2px 0;
     }
@@ -2879,17 +2942,37 @@ export class FruityWeatherCard extends LitElement {
     }
     /* em-relative so the period marker stays ~2px under the hour at any size. */
     .cell-label .ap { font-size: 0.82em; }
+    /* Vertical rhythm is stated as fractions of the GLYPH, not in pixels, so the
+       proportions hold at any tile size. They are measured off the reference:
+       the chance of precipitation sits FLUSH under the glyph — zero gap — and
+       all the breathing room goes between that pair and the temperature.
+       Spacing the three evenly instead reads as three unrelated rows; grouped
+       this way the percentage is plainly an annotation OF the glyph. */
     .cell-icon {
       width: var(--fwc-icon);
       height: var(--fwc-icon);
       display: block;
-      /* 3px, plus 2px of breathing room above and below so the glyph is not
-         crowded between the hour and the temperature. */
-      margin: 5px auto;
+      margin: calc(var(--fwc-icon) * 0.79) auto 0;
+    }
+    /* Rendered in EVERY cell, empty where there is nothing to say, so its height
+       is spent whether or not an hour carries a figure. Without that the
+       temperatures would sit at different heights from cell to cell and the
+       strip would lose its baseline — the row of temperatures reading straight
+       across is what makes it scannable. */
+    .cell-prob {
+      height: calc(var(--d-font) * 0.86);
+      line-height: calc(var(--d-font) * 0.86);
+      font-size: calc(var(--d-font) * 0.72);
+      font-weight: 600;
+      color: var(--fwc-precip);
     }
     /* The sunrise/sunset caption is deliberately NOT dimmed or shrunk: it reads
        as one continuous row of labels with the hourly temperatures. */
-    .cell-val { font-size: calc(var(--d-font) * 0.92); font-weight: 600; }
+    .cell-val {
+      margin-top: calc(var(--fwc-icon) * 0.63);
+      font-size: calc(var(--d-font) * 0.92);
+      font-weight: 600;
+    }
 
     /* ---- two-column body ---- */
     /*

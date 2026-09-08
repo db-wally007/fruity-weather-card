@@ -105,6 +105,24 @@ The date is **centred** in that box. Left-aligning it parks the whole of the sla
 the resulting lopsided gap before the next button was rejected on sight. Keep the two gaps equal:
 `--sheet-date-w` is padded by 10px at both ends for exactly that reason.
 
+### A glyph and a chance in one cell must come from one forecast
+
+Fixed twice, in two different layers, and both looked identical on screen — rain drawn above a
+blank while the cells that carried a figure showed no rain:
+
+1. **Across providers.** The strip drew the weather entity's glyph beside Open-Meteo's probability.
+   Measured: met.no called 04:00 `rainy` with 0.5mm while Open-Meteo's ensemble gave 04:00 5% and
+   put the chance at 05:00-06:00. The strip's glyph now comes from the same fetch as its chance.
+   The temperature deliberately still comes from the entity — a temperature cannot visibly
+   contradict a probability the way a glyph can.
+2. **Within one provider.** `weather_code` is a single deterministic run; `precipitation_probability`
+   is an ensemble of perturbed runs. One fetch returned `cloudy` at 35% next to `rainy` at 18%. So
+   thresholding on the number alone is not enough — see `WET_CONDITIONS`, which forces a figure
+   wherever the glyph depicts precipitation.
+
+If you add another surface showing a condition and a chance together, apply the same rule, and
+remember a threshold cannot by itself keep them consistent.
+
 ### Precipitation PROBABILITY exists in exactly one place
 
 Measured 2026-09-08 against real payloads, not documentation:

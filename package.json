@@ -1,6 +1,6 @@
 {
   "name": "fruity-weather-card",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Home Assistant Lovelace card: an iOS-style forecast card (hero, 24h strip, daily list, detail tiles)",
   "type": "module",
   "private": true,
