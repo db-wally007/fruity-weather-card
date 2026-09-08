@@ -401,6 +401,7 @@ export class FruityWeatherCard extends LitElement {
 
   public disconnectedCallback(): void {
     super.disconnectedCallback();
+    window.removeEventListener('pointerdown', this._outsideTap, true);
     this._unsubscribe();
     this._stopPlayback();
     this._mapResize?.disconnect();
@@ -536,7 +537,7 @@ export class FruityWeatherCard extends LitElement {
     // Only the open changes the grid's shape; switching day just swaps content,
     // and reflowing then would make the tiles twitch for no reason.
     if (opening) {
-      this._pinMap(true);
+      window.addEventListener('pointerdown', this._outsideTap, true);
       void this._reflowGrid(() => { this._sheetDay = index; });
     }
     else this._sheetDay = index;
@@ -544,9 +545,25 @@ export class FruityWeatherCard extends LitElement {
     void this._ensureHourly();
   }
 
+  /**
+   * Dismiss on a tap anywhere that is not the card or the daily list. Bound on
+   * window in the CAPTURE phase because the regions that would otherwise
+   * swallow it — tiles with their own tap actions — stop propagation. The daily
+   * list is excluded so its rows keep their own switch/toggle behaviour.
+   */
+  private _outsideTap = (ev: Event): void => {
+    if (this._sheetDay === null) return;
+    const path = ev.composedPath();
+    const card = this.renderRoot.querySelector('.daycard');
+    const daily = this.renderRoot.querySelector('.panel.daily');
+    if ((card && path.includes(card)) || (daily && path.includes(daily))) return;
+    this._closeDaySheet();
+  };
+
   private _closeDaySheet(): void {
+    window.removeEventListener('pointerdown', this._outsideTap, true);
     this._hourScrub = null;
-    void this._reflowGrid(() => { this._sheetDay = null; }).then(() => this._pinMap(false));
+    void this._reflowGrid(() => { this._sheetDay = null; });
   }
 
   /**
@@ -664,39 +681,6 @@ export class FruityWeatherCard extends LitElement {
     // only when the grid has not arrived yet, in which case _ensureGrid starts
     // it, and when the platform asks for less motion.
     if (this._mapOpen && !reduced) this._autoPlay();
-  }
-
-  /**
-   * Freeze the radar where it currently sits, so opening the day card reflows
-   * everything around it instead of shoving the largest tile across the grid.
-   * The cell is read back from the CURRENT layout rather than hardcoded, so it
-   * stays right at any column count; clearing it lets the tile flow again.
-   */
-  private _pinMap(pin: boolean): void {
-    const grid = this.renderRoot.querySelector('.grid') as HTMLElement | null;
-    const map = this.renderRoot.querySelector('.tile.map') as HTMLElement | null;
-    if (!map) return;
-    if (!pin || !grid || this._mapOpen) {
-      map.style.gridColumn = '';
-      map.style.gridRow = '';
-      return;
-    }
-    const cs = getComputedStyle(grid);
-    const track = parseFloat(cs.gridTemplateColumns.split(' ')[0]);
-    const gap = parseFloat(cs.columnGap || cs.gap) || 0;
-    if (!Number.isFinite(track) || track <= 0) return;
-    const g = grid.getBoundingClientRect();
-    const r = map.getBoundingClientRect();
-    const col = Math.round((r.left - g.left) / (track + gap)) + 1;
-    const row = Math.round((r.top - g.top) / (track + gap)) + 1;
-    // Keep whatever spans it already had rather than assuming. Dropping the ROW
-    // span in particular collapses a two-row tile into one, which forces that
-    // track to the tile's full height and reshuffles everything below it.
-    const ms = getComputedStyle(map);
-    const cSpan = ms.gridColumnEnd && ms.gridColumnEnd !== 'auto' ? ms.gridColumnEnd : 'span 1';
-    const rSpan = ms.gridRowEnd && ms.gridRowEnd !== 'auto' ? ms.gridRowEnd : 'span 1';
-    map.style.gridColumn = `${col} / ${cSpan}`;
-    map.style.gridRow = `${row} / ${rSpan}`;
   }
 
   private static _reducedMotion(): boolean {
@@ -2540,7 +2524,16 @@ export class FruityWeatherCard extends LitElement {
        NOTE: no padding-bottom override here. It used to be 0, which ran the map
        to the tile's bottom edge while the sides kept 14px — measured 15/15/1. */
     .tile.map {
-      grid-row: span 2;
+      /*
+       * A FIXED cell, so opening the day card reflows everything around the
+       * radar instead of dragging the largest tile across the grid. Static
+       * rather than pinned from script: an earlier dynamic pin rewrote the
+       * spans below with its own read-back value and degraded them to span 1,
+       * which let this 354px tile sit in a 170px cell and overlap its
+       * neighbours. The .open rule is more specific and still wins.
+       */
+      grid-column: 1 / span 2;
+      grid-row: 3 / span 2;
       height: calc(var(--fwc-tile) * 2 + var(--fwc-gap));
     }
     /*
