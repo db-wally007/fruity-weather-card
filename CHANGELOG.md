@@ -16,6 +16,10 @@
   condition; the day's high/low step aside while a finger is down and return on release.
 - Hovering the curve reads out as well as dragging, so it works with a mouse.
 
+- Motion throughout: the tiles FLIP into their new places when the day card opens or closes, the
+  card springs out of the daily list rather than appearing, and the notch travels between days
+  instead of jumping. All on one overshooting ease, and all suppressed under `prefers-reduced-motion`.
+
 ### Changed
 
 - **The precipitation map starts animating when expanded.** Expanding it is the request to see it

@@ -532,14 +532,18 @@ export class FruityWeatherCard extends LitElement {
   }
 
   private _openDaySheet(index: number): void {
+    const opening = this._sheetDay === null;
+    // Only the open changes the grid's shape; switching day just swaps content,
+    // and reflowing then would make the tiles twitch for no reason.
+    if (opening) void this._reflowGrid(() => { this._sheetDay = index; });
+    else this._sheetDay = index;
     this._hourScrub = null;
-    this._sheetDay = index;
     void this._ensureHourly();
   }
 
   private _closeDaySheet(): void {
-    this._sheetDay = null;
     this._hourScrub = null;
+    void this._reflowGrid(() => { this._sheetDay = null; });
   }
 
   /**
@@ -557,7 +561,12 @@ export class FruityWeatherCard extends LitElement {
     const r = row.getBoundingClientRect();
     // Kept off the card's rounded corners even when the row is at an extreme.
     const y = Math.min(Math.max(r.top + r.height / 2 - c.top, 24), Math.max(c.height - 24, 24));
+    // First placement must not animate from the card's top edge; every later
+    // one should glide, so the notch reads as travelling to the new day.
+    const firstPlacement = !arrow.style.top;
+    if (firstPlacement) arrow.style.transition = 'none';
     arrow.style.top = `${Math.round(y)}px`;
+    if (firstPlacement) requestAnimationFrame(() => { arrow.style.transition = ''; });
   }
 
   /** Hours for the day at `index` of the daily list, or [] when unavailable. */
@@ -632,29 +641,59 @@ export class FruityWeatherCard extends LitElement {
    * and smear the map raster.
    */
   private async _toggleMap(): Promise<void> {
-    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    const grid = this.renderRoot.querySelector('.grid');
-    const movers = grid
-      ? ([...grid.children] as HTMLElement[]).filter((el) => !el.classList.contains('map'))
-      : [];
-    const first = new Map(movers.map((el) => [el, el.getBoundingClientRect()]));
-
-    this._mapOpen = !this._mapOpen;
-    if (!this._mapOpen) {
-      this._stopPlayback();
-      this._mapT = 0;
-      this._mapFrame = 0;
-      // Zoom is deliberately NOT reset — see _zoom.
-    }
-    await this.updateComplete;
+    const reduced = FruityWeatherCard._reducedMotion();
+    await this._reflowGrid(
+      () => {
+        this._mapOpen = !this._mapOpen;
+        if (!this._mapOpen) {
+          this._stopPlayback();
+          this._mapT = 0;
+          this._mapFrame = 0;
+          // Zoom is deliberately NOT reset — see _zoom.
+        }
+      },
+      // The map tile animates its own size through CSS; FLIPping it as well
+      // would fight that.
+      (el) => !el.classList.contains('map'),
+    );
     // Expanding IS the request to see it move — a still field asks the user to
     // hunt for a play button to find out what the tile is even for. Held back
     // only when the grid has not arrived yet, in which case _ensureGrid starts
     // it, and when the platform asks for less motion.
     if (this._mapOpen && !reduced) this._autoPlay();
-    if (reduced) return;
+  }
 
-    for (const el of movers) {
+  private static _reducedMotion(): boolean {
+    return !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  /** Overshooting ease, so cards settle into place rather than arriving flat. */
+  private static readonly SPRING = 'cubic-bezier(0.34, 1.42, 0.64, 1)';
+
+  /**
+   * FLIP the grid across a layout change: measure every child, apply `mutate`,
+   * re-measure, then play each child from its old position to its new one.
+   *
+   * Everything that reflows the grid goes through here — opening or closing the
+   * day card, expanding the map — so a card never teleports and every move uses
+   * the same spring.
+   */
+  private async _reflowGrid(
+    mutate: () => void,
+    include: (el: HTMLElement) => boolean = () => true,
+  ): Promise<void> {
+    const grid = this.renderRoot.querySelector('.grid');
+    const movers = grid ? ([...grid.children] as HTMLElement[]).filter(include) : [];
+    const first = new Map(movers.map((el) => [el, el.getBoundingClientRect()]));
+
+    mutate();
+    await this.updateComplete;
+    if (FruityWeatherCard._reducedMotion()) return;
+
+    // Children present before AND after; a card that has just appeared has no
+    // previous box and plays its own entrance instead.
+    const survivors = movers.filter((el) => el.isConnected);
+    for (const el of survivors) {
       const a = first.get(el)!;
       const b = el.getBoundingClientRect();
       const dx = a.left - b.left;
@@ -665,9 +704,9 @@ export class FruityWeatherCard extends LitElement {
     }
     // One frame with the inverted transforms committed, then release them.
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      for (const el of movers) {
+      for (const el of survivors) {
         if (!el.style.transform) continue;
-        el.style.transition = 'transform 420ms cubic-bezier(0.34, 1.42, 0.64, 1)';
+        el.style.transition = `transform 420ms ${FruityWeatherCard.SPRING}`;
         el.style.transform = '';
         el.addEventListener('transitionend', () => {
           el.style.transition = '';
@@ -2051,6 +2090,18 @@ export class FruityWeatherCard extends LitElement {
       border-radius: 18px;
       background: var(--sheet-bg);
       border: 0.5px solid var(--fwc-hairline);
+      transform-origin: left center;
+      animation: daycard-in 420ms cubic-bezier(0.34, 1.42, 0.64, 1);
+    }
+    /* Grows out of the daily list it belongs to rather than blinking into
+       existence, on the same spring the reflowing tiles use. */
+    @keyframes daycard-in {
+      from { opacity: 0; transform: scale(0.92); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .daycard { animation: none; }
+      .sheet-arrow { transition: none !important; }
     }
     /*
      * The notch that ties the card to its row. An SVG rather than the usual CSS
@@ -2067,6 +2118,7 @@ export class FruityWeatherCard extends LitElement {
       height: 36px;
       transform: translateY(-50%);
       overflow: visible;
+      transition: top 420ms cubic-bezier(0.34, 1.42, 0.64, 1);
     }
     .sheet-arrow polygon { fill: var(--sheet-bg); }
     .sheet-arrow polyline {
@@ -2080,8 +2132,6 @@ export class FruityWeatherCard extends LitElement {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding-top: 8px;
-      border-top: 0.5px solid var(--fwc-hairline);
     }
     .sheet-date { flex: 1; text-align: center; font-size: calc(var(--d-font) * 0.85); font-weight: 500; }
     .snav {
