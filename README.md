@@ -221,8 +221,17 @@ same height as the list, so the detail tiles simply flow underneath. It is a gri
 an overlay: nothing is hidden behind it, its position never changes, and only the notch on its left
 edge moves, to point at whichever day is selected. Tap the same row again to close it.
 
+Changing day — with the arrows or by tapping a different row — pushes the content sideways: the day
+you are leaving slides out and fades while the new one arrives from the opposite side, so the
+direction of travel tells you which way through the week you moved.
+
 It carries that day's hourly temperature curve, a condition glyph every few hours, and the day's
 high and low. Drag or hover across the curve for the time, temperature and condition at that hour.
+
+On **today's** row the part of the day that has already happened is drawn as history: the curve
+goes dashed and colourless, the fill under it drains to grey, the glyphs and hour labels behind the
+moment dim, and a hairline marks now. The boundary is the actual time rather than the nearest hour,
+so it moves through the day continuously.
 
 **The curve does not come from your weather entity.** Home Assistant serves whatever the
 integration publishes, and met.no publishes exactly **48 hourly entries** — today, tomorrow and a

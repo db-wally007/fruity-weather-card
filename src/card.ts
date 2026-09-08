@@ -533,16 +533,84 @@ export class FruityWeatherCard extends LitElement {
   }
 
   private _openDaySheet(index: number): void {
-    const opening = this._sheetDay === null;
     // Only the open changes the grid's shape; switching day just swaps content,
     // and reflowing then would make the tiles twitch for no reason.
-    if (opening) {
+    if (this._sheetDay === null) {
       window.addEventListener('pointerdown', this._outsideTap, true);
       void this._reflowGrid(() => { this._sheetDay = index; });
+      this._hourScrub = null;
+    } else {
+      void this._switchDay(index);
     }
-    else this._sheetDay = index;
-    this._hourScrub = null;
     void this._ensureHourly();
+  }
+
+  /**
+   * Push the card's contents sideways when the day changes — from the arrows or
+   * from a different row of the daily list. The day being left accelerates out
+   * and fades; the new one settles in from the opposite side, so the direction
+   * of travel says which way through the week you moved.
+   *
+   * Both halves move AT ONCE, which needs a clone: the live element cannot be in
+   * two places, and playing the exit before the entrance would leave the card
+   * blank for the length of the first half. The clone is appended AFTER the real
+   * body so `querySelector` in the post-render positioning still resolves to the
+   * live one.
+   *
+   * Travel is a fraction of the width rather than the whole of it. This is a
+   * detail swap inside a card that never moves, not a page turn, and the fade
+   * carries most of the change; a full-width slide across dense content reads as
+   * a lurch.
+   */
+  private async _switchDay(next: number): Promise<void> {
+    const cur = this._sheetDay;
+    const stage = this.renderRoot.querySelector('.sheet-stage') as HTMLElement | null;
+    const body = this.renderRoot.querySelector('.sheet-body') as HTMLElement | null;
+    this._hourScrub = null;
+
+    if (cur === null || cur === next || !stage || !body || FruityWeatherCard._reducedMotion()) {
+      this._sheetDay = next;
+      return;
+    }
+
+    // Tapping through days faster than the animation runs would otherwise stack
+    // clones on top of each other.
+    stage.querySelectorAll('.sheet-body.ghost').forEach((g) => g.remove());
+    const ghost = body.cloneNode(true) as HTMLElement;
+    ghost.classList.add('ghost');
+    stage.appendChild(ghost);
+
+    const dir = next > cur ? 1 : -1;
+    const travel = Math.min(stage.getBoundingClientRect().width * 0.16, 90);
+
+    this._sheetDay = next;
+    await this.updateComplete;
+
+    // Transform and opacity are animated SEPARATELY on each half. Sharing one
+    // keyframe set means sharing one easing, and the spring's very fast start
+    // brought the arriving day to half opacity while the leaving one was still
+    // at 60% — both legible at once, which read as a smear rather than a push.
+    // Split, the fades hand over in about 40ms while the slides keep their own,
+    // slower curves.
+    const out = ghost.animate(
+      [{ transform: 'translateX(0)' }, { transform: `translateX(${-dir * travel}px)` }],
+      { duration: 230, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' },
+    );
+    ghost.animate([{ opacity: 1 }, { opacity: 0 }],
+      { duration: 150, easing: 'ease-in', fill: 'forwards' });
+    const drop = () => ghost.remove();
+    out.addEventListener('finish', drop);
+    out.addEventListener('cancel', drop);
+
+    // The `backwards` fill is what holds this offscreen and transparent through
+    // the delay; without it the new day would sit at rest, fully opaque, until
+    // its animation started, and the swap would read as a jump cut.
+    body.animate(
+      [{ transform: `translateX(${dir * travel}px)` }, { transform: 'translateX(0)' }],
+      { duration: 380, delay: 60, easing: FruityWeatherCard.SPRING, fill: 'backwards' },
+    );
+    body.animate([{ opacity: 0 }, { opacity: 1 }],
+      { duration: 220, delay: 110, easing: 'ease-out', fill: 'backwards' });
   }
 
   /**
@@ -1397,24 +1465,26 @@ export class FruityWeatherCard extends LitElement {
           <polygon points="26,0 1,18 26,36" />
           <polyline points="26,0 1,18 26,36" />
         </svg>
-          <div class="sheet-nav">
-            <button class="snav" ?disabled=${index === 0}
-                    @click=${() => this._openDaySheet(index - 1)}>
-              ${svg`<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                <path d="M15 5 L8 12 L15 19" /></svg>`}
-            </button>
-            <div class="sheet-date">
-              ${date.toLocaleDateString(lang, {
-                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-              })}
+          <button class="snav prev" ?disabled=${index === 0}
+                  @click=${() => this._openDaySheet(index - 1)}>
+            ${svg`<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M15 5 L8 12 L15 19" /></svg>`}
+          </button>
+          <button class="snav next" ?disabled=${index >= days.length - 1}
+                  @click=${() => this._openDaySheet(index + 1)}>
+            ${svg`<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M9 5 L16 12 L9 19" /></svg>`}
+          </button>
+          <div class="sheet-stage">
+            <div class="sheet-body">
+              <div class="sheet-date">
+                ${date.toLocaleDateString(lang, {
+                  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+                })}
+              </div>
+              ${this._renderSheetBody(hours, unit, day)}
             </div>
-            <button class="snav" ?disabled=${index >= days.length - 1}
-                    @click=${() => this._openDaySheet(index + 1)}>
-              ${svg`<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                <path d="M9 5 L16 12 L9 19" /></svg>`}
-            </button>
           </div>
-          ${this._renderSheetBody(hours, unit, day)}
       </div>
     `;
   }
@@ -1451,14 +1521,63 @@ export class FruityWeatherCard extends LitElement {
     const axisLo = Math.floor(lo / step) * step;
     const axisHi = Math.ceil(hi / step) * step;
     const axisSpan = Math.max(axisHi - axisLo, step);
+
+    // At most four labels. Only the LABELS are thinned — the bounds above stay
+    // rounded tight to the day's own range, so the curve keeps filling the box.
+    // Widening the scale instead (picking a coarser step and re-rounding to it)
+    // does cut the label count, but a 31° day was scaled to 40° and the curve
+    // shrank to two thirds of the height for no reason the reader can see.
+    // Labels are multiples of 5 stepped down from the top, so they stay whole
+    // numbers whatever the multiplier.
+    const MAX_TICKS = 4;
+    let labelStep = step;
+    while (Math.floor(axisSpan / labelStep) + 1 > MAX_TICKS) labelStep += step;
     const ticks: number[] = [];
-    for (let v = axisHi; v >= axisLo - 0.001; v -= step) ticks.push(v);
+    for (let v = axisHi; v >= axisLo - 0.001; v -= labelStep) ticks.push(v);
 
     const n = hours.length;
     const x = (i: number) => (n > 1 ? (i / (n - 1)) * 100 : 50);
     const y = (t: number) => ((axisHi - t) / axisSpan) * 100;
+
+    // Hours that have already happened are drawn as history: a dashed, muted
+    // curve under a colourless fill, with the glyphs, the hour labels and any
+    // H/L marker behind the moment dimmed to match, and a hairline marking now.
+    // Only the day containing the current time has a past, so on every other
+    // row `nowIdx` stays null and the whole curve renders live.
+    //
+    // The split is the ACTUAL clock position, not the nearest hour: the point
+    // where the two halves meet is interpolated between the hours either side,
+    // so the divider tracks through the day rather than jumping every 60
+    // minutes, and the seam is invisible because both halves share that point.
+    const nowMs = Date.now();
+    let nowIdx: number | null = null;
+    if (n > 1 && nowMs > hours[0].time && nowMs < hours[n - 1].time) {
+      for (let i = 0; i < n - 1; i++) {
+        if (nowMs < hours[i + 1].time) {
+          nowIdx = i + (nowMs - hours[i].time) / (hours[i + 1].time - hours[i].time);
+          break;
+        }
+      }
+    }
+    const isPast = (i: number) => nowIdx !== null && i < nowIdx;
+
     const pts = hours.map((h, i) => `${x(i)},${y(h.temp)}`).join(' ');
-    const area = `0,100 ${pts} 100,100`;
+    let pastPts = '';
+    let livePts = pts;
+    let pastArea = '';
+    let liveArea = `0,100 ${pts} 100,100`;
+    if (nowIdx !== null) {
+      const cut = Math.floor(nowIdx);
+      const f = nowIdx - cut;
+      const nx = x(nowIdx);
+      const ny = y(hours[cut].temp + (hours[cut + 1].temp - hours[cut].temp) * f);
+      const before = hours.slice(0, cut + 1).map((h, i) => `${x(i)},${y(h.temp)}`).join(' ');
+      const after = hours.slice(cut + 1).map((h, k) => `${x(cut + 1 + k)},${y(h.temp)}`).join(' ');
+      pastPts = `${before} ${nx},${ny}`;
+      livePts = `${nx},${ny} ${after}`;
+      pastArea = `0,100 ${pastPts} ${nx},100`;
+      liveArea = `${nx},100 ${livePts} 100,100`;
+    }
 
     // One glyph per third hour: 24 across a pop-up column overlap badly.
     const glyphStep = Math.max(1, Math.round(n / 8));
@@ -1492,7 +1611,7 @@ export class FruityWeatherCard extends LitElement {
 
       <div class="sheet-glyphs">
         ${hours.map((h, i) => (i % glyphStep === 0
-          ? html`<img class="sglyph ${i === 0 ? 'first' : i === n - 1 ? 'last' : ''}"
+          ? html`<img class="sglyph ${i === 0 ? 'first' : i === n - 1 ? 'last' : ''} ${isPast(i) ? 'past' : ''}"
                       style=${`left:${x(i)}%`}
                       src=${this._iconUrl(iconFor(h.condition, this._nightAt(new Date(h.time))))}
                       alt=${h.condition} />`
@@ -1508,6 +1627,12 @@ export class FruityWeatherCard extends LitElement {
              @pointerleave=${() => { this._hourScrub = null; }}>
           ${ticks.map((v) => html`
             <div class="sgl" style=${`top:${y(v)}%`}></div>`)}
+          ${nowIdx !== null
+            ? html`<div class="now-line" style=${`left:${x(nowIdx)}%`}></div>`
+            : nothing}
+          <!-- The conditional shapes below use lit's svg tag, not html: a
+               nested html template is parsed in the HTML namespace, so its
+               polygon comes out as an unknown HTML element and never paints. -->
           <svg class="scurve" viewBox="0 0 100 100" preserveAspectRatio="none">
             <defs>
               <linearGradient id="sfill" x1="0" y1="0" x2="0" y2="1">
@@ -1515,9 +1640,18 @@ export class FruityWeatherCard extends LitElement {
                 <stop offset="55%" stop-color="#57c8c8" stop-opacity="0.40" />
                 <stop offset="100%" stop-color="#3f7fb0" stop-opacity="0.18" />
               </linearGradient>
+              <linearGradient id="sfillpast" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#9ba4a8" stop-opacity="0.26" />
+                <stop offset="55%" stop-color="#7d888d" stop-opacity="0.15" />
+                <stop offset="100%" stop-color="#68737a" stop-opacity="0.07" />
+              </linearGradient>
             </defs>
-            <polygon points=${area} fill="url(#sfill)" />
-            <polyline points=${pts} vector-effect="non-scaling-stroke" />
+            ${pastArea ? svg`<polygon points=${pastArea} fill="url(#sfillpast)" />` : nothing}
+            <polygon points=${liveArea} fill="url(#sfill)" />
+            ${pastPts
+              ? svg`<polyline class="past" points=${pastPts} vector-effect="non-scaling-stroke" />`
+              : nothing}
+            <polyline points=${livePts} vector-effect="non-scaling-stroke" />
           </svg>
           ${(() => {
             // The caption sits above H and below L, but a peak near the top of
@@ -1526,13 +1660,15 @@ export class FruityWeatherCard extends LitElement {
             // there is no room on the usual side, put it on the other one.
             const yHi = y(hi);
             const yLo = y(lo);
+            const iHi = hours.indexOf(hiAt);
+            const iLo = hours.indexOf(loAt);
             return html`
-              <div class="smark hi ${yHi < 22 ? 'flip' : ''}"
-                   style=${`left:${x(hours.indexOf(hiAt))}%; top:${yHi}%`}>
+              <div class="smark hi ${yHi < 22 ? 'flip' : ''} ${isPast(iHi) ? 'past' : ''}"
+                   style=${`left:${x(iHi)}%; top:${yHi}%`}>
                 <span>H</span>
               </div>
-              <div class="smark lo ${yLo > 78 ? 'flip' : ''}"
-                   style=${`left:${x(hours.indexOf(loAt))}%; top:${yLo}%`}>
+              <div class="smark lo ${yLo > 78 ? 'flip' : ''} ${isPast(iLo) ? 'past' : ''}"
+                   style=${`left:${x(iLo)}%; top:${yLo}%`}>
                 <span>L</span>
               </div>
             `;
@@ -1551,7 +1687,7 @@ export class FruityWeatherCard extends LitElement {
 
       <div class="sheet-xaxis">
         ${hours.map((h, i) => (h.hour % 6 === 0 && h.hour !== 0
-          ? html`<span class=${i === n - 1 ? 'last' : ''}
+          ? html`<span class="${i === n - 1 ? 'last' : ''} ${isPast(i) ? 'past' : ''}"
                        style=${`left:${x(i)}%`}>${this._hourLabel(h.hour)}</span>`
           : nothing))}
       </div>
@@ -2056,6 +2192,21 @@ export class FruityWeatherCard extends LitElement {
       --fwc-panel: rgba(255, 255, 255, 0.13);
       /* One source for the sheet's fill so its notch cannot drift from it. */
       --sheet-bg: #16161a;
+      /* Shared by the day card's temperature scale and its hour row, so the
+         two axes always read as one set of labels. */
+      --sheet-axis: rgba(255, 255, 255, 0.75);
+      /* Same labels once their hour has passed. */
+      --sheet-axis-past: rgba(255, 255, 255, 0.34);
+      /* Day card header geometry. The date box has a FIXED width so the next
+         button never shifts as the date changes length — it is the widest
+         string the format can produce (measured: "Wednesday, September 23,
+         2026" at 266px in en), plus a little slack. Short dates simply leave
+         space before the button rather than dragging it left. A wider locale
+         will overflow into the free area on the right, which is the intended
+         failure direction; override the token to suit. */
+      --daycard-pad-x: 14px;
+      --snav-size: 30px;
+      --sheet-date-w: 272px;
       --fwc-hairline: rgba(255, 255, 255, 0.14);
       --fwc-dim: rgba(255, 255, 255, 0.62);
       --fwc-dimmer: rgba(255, 255, 255, 0.45);
@@ -2144,7 +2295,7 @@ export class FruityWeatherCard extends LitElement {
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
-      padding: 10px 14px 12px;
+      padding: 10px var(--daycard-pad-x) 12px;
       border-radius: 18px;
       background: var(--sheet-bg);
       border: 0.5px solid var(--fwc-hairline);
@@ -2191,25 +2342,52 @@ export class FruityWeatherCard extends LitElement {
       stroke-linejoin: round;
     }
 
-    .sheet-nav {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+    /* The stage clips nothing itself — the card's own overflow does that — but
+       it gives the outgoing clone something to be absolutely positioned in. */
+    .sheet-stage { position: relative; flex: 1 1 auto; min-height: 0; }
+    .sheet-body { display: flex; flex-direction: column; }
+    .sheet-body.ghost { position: absolute; top: 0; left: 0; width: 100%; pointer-events: none; }
         /* Typography below is matched to its counterpart in the daily list, so the
        two cards read as one: date to .dday, the scale to .dlo, the hour row to
        .dhi. Sizes come from the same --d-font token rather than being restated. */
-    .sheet-date { flex: 1; text-align: center; font-size: var(--d-font); }
+    /* Sized to occupy exactly the row the nav buttons sit on, and indented past
+       the previous-day button. It belongs to the sliding body rather than to a
+       nav row so that it travels with the day it names, while the buttons —
+       chrome, not content — stay put; that is why they are positioned out of
+       flow above. The header is packed to the left, leaving the right of the
+       row free for further controls. */
+    .sheet-date {
+      height: var(--snav-size);
+      display: flex;
+      align-items: center;
+      /* Centred in its reserved box, not left-aligned in it: the box is a fixed
+         width so the next button cannot move, and parking all of that slack on
+         one side left a lopsided gap before the button. Centred, the two gaps
+         match and the header reads as one deliberate group. */
+      justify-content: center;
+      margin-left: calc(var(--snav-size) + 10px);
+      width: var(--sheet-date-w);
+      font-size: var(--d-font);
+    }
     .snav {
+      position: absolute;
+      top: 10px;
+      z-index: 1;
       display: grid;
       place-items: center;
-      width: 30px;
-      height: 30px;
+      width: var(--snav-size);
+      height: var(--snav-size);
       border: none;
       border-radius: 9px;
       cursor: pointer;
       color: inherit;
       background: rgba(255, 255, 255, 0.1);
+    }
+    .snav.prev { left: var(--daycard-pad-x); }
+    /* Sits just past the date box. Both read the same width token, so the
+       button and the space reserved for the date cannot drift apart. */
+    .snav.next {
+      left: calc(var(--daycard-pad-x) + var(--snav-size) + 10px + var(--sheet-date-w) + 10px);
     }
     .snav[disabled] { opacity: 0.3; cursor: default; }
     .snav svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -2262,6 +2440,28 @@ export class FruityWeatherCard extends LitElement {
       stroke-linejoin: round;
       stroke-linecap: round;
     }
+    /* The elapsed part of today. Round caps grow a dash by half the stroke
+       width at each end, so the dasharray is stated in the pre-cap geometry:
+       4 and 9 paint as an 8px capsule with a 5px gap. The non-scaling-stroke
+       vector-effect is what keeps that in screen pixels — the viewBox is
+       stretched to the plot, so a plain dasharray would be squashed
+       horizontally. */
+    .scurve polyline.past {
+      stroke: rgba(255, 255, 255, 0.4);
+      stroke-dasharray: 4 9;
+    }
+    .now-line {
+      position: absolute;
+      top: calc(-1 * (var(--fwc-icon) + 2px));
+      bottom: 0;
+      border-left: 1px solid rgba(255, 255, 255, 0.16);
+      pointer-events: none;
+    }
+    .sglyph.past { opacity: 0.42; }
+    /* The meridiem is its own span and so carries its own colour declaration —
+       it does not inherit the dimmed one from the label around it. */
+    .sheet-xaxis span.past, .sheet-xaxis span.past .ap { color: var(--sheet-axis-past); }
+    .smark.past { background: rgba(255, 255, 255, 0.5); }
     .smark {
       position: absolute;
       width: 11px;
@@ -2304,7 +2504,7 @@ export class FruityWeatherCard extends LitElement {
       transform: translateY(-50%);
       font-size: var(--d-font);
       font-variant-numeric: tabular-nums;
-      color: var(--fwc-dimmer);
+      color: var(--sheet-axis);
     }
     .sheet-xaxis {
       position: relative;
@@ -2317,6 +2517,7 @@ export class FruityWeatherCard extends LitElement {
       position: absolute;
       transform: translateX(-50%);
       font-size: var(--d-font);
+      color: var(--sheet-axis);
       white-space: nowrap;
     }
     /* Between the sunrise/sunset tile's proportion (0.67), which read too small

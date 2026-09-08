@@ -76,6 +76,69 @@ from the live layout rather than hardcoding one. Preserve BOTH spans when
 pinning — dropping the row span collapses a two-row tile into one and forces
 that track to the tile's full height.
 
+### The day-switch push needs a clone, and split transform/opacity
+
+`_switchDay` animates both halves at once, which needs a clone of the outgoing content: the live
+element cannot be in two places, and playing the exit before the entrance leaves the card blank for
+the length of the first half. Two things to preserve:
+
+- The clone is appended **after** the real body, so `querySelector` in `updated()` still resolves
+  `.sheet-readout` and friends to the live one. Insert it first and the post-render positioning
+  measures the ghost.
+- **Transform and opacity are animated separately on each half.** One keyframe set means one
+  easing, and the spring's very fast start brought the arriving day to half opacity while the
+  leaving one was still at 60% — measured 0.52/0.61 at the crossover, which reads as a smear rather
+  than a push. Split, the worst simultaneous legibility is 0.17/0.18.
+
+The date label lives inside the sliding body, not in a nav row, so it travels with the day it
+names; the prev/next buttons are positioned out of flow so they stay put. `.sheet-date` is a fixed
+`--snav-size` line precisely so it occupies the row those buttons sit on.
+
+Its **width is fixed too** (`--sheet-date-w`), and `.snav.next` is positioned from that same token.
+The date string varies by 34px across a ten-day list (measured 222–256px in `en`), so a
+shrink-to-fit box would drag the next button back and forth as the day changed — most visibly
+during the push, where the buttons are meant to be the one fixed thing. A locale whose dates are
+wider than the token will overflow into the free area kept on the right; widen the token rather
+than making the box elastic.
+
+The date is **centred** in that box. Left-aligning it parks the whole of the slack on one side, and
+the resulting lopsided gap before the next button was rejected on sight. Keep the two gaps equal:
+`--sheet-date-w` is padded by 10px at both ends for exactly that reason.
+
+### The temperature scale thins LABELS, never the bounds
+
+The day card's y-axis is capped at four labels. Do that by stepping the labels in larger multiples
+of 5, not by choosing a coarser step and re-rounding the bounds to it. The latter was tried and
+rejected: a 31° day rounded up to a 40° axis and the curve collapsed to two thirds of the plot
+height. Bounds stay at the tight 5° rounding; the curve fills ~75% of the box on a normal day, and
+labels are multiples of 5 stepped down from the top so they are whole numbers however coarse the
+step gets.
+
+### Conditional SVG shapes need lit's `svg` tag, not `html`
+
+The day curve draws its elapsed and remaining halves as separate shapes, so those are conditional
+fragments inside the `<svg>`. A nested ``html`…` `` template is parsed in the **HTML** namespace:
+`<polygon>` comes out as an unknown HTML element, is inserted happily, reports as an element in
+the DOM — and never paints. Nothing errors, so the only symptom is a missing shape. Use
+``svg`…` `` for any fragment that lands inside an `<svg>`.
+
+Related: `stroke-dasharray` on the curve is in **user units**, and the viewBox is stretched to the
+plot (`preserveAspectRatio="none"`), so a plain dasharray is squashed horizontally. The
+`non-scaling-stroke` vector-effect is what keeps the dashes in screen pixels. Round line caps also
+grow each dash by half the stroke width at both ends, so the numbers are stated in pre-cap
+geometry.
+
+### `_nightAt` is only correct inside the current sun window
+
+`sun.sun` carries the **next** rising and setting and nothing else, so `_nightAt` can only classify
+times that fall in the one window between them. Measured 2026-09-08 at 11:11 local: today 03:00
+returns *day*, and so do Wednesday 21:00 and Friday 03:00. Every hour of today before sunrise, and
+most of days 2–10, therefore get the wrong day/night artwork in the hourly strip and the day card.
+
+Fixing it needs a real solar-position calculation for an arbitrary date (or, more cheaply,
+approximating each day from today's sunrise/sunset with a per-day drift). Do not "fix" it by
+reading `sun.sun` harder — the data is not there.
+
 ### Bubble pop-ups cannot pass CSS variables to a hosted card
 
 Bubble rewrites pop-up `styles:` selectors with a `:not(.bubble-cards-grid-container, …)` that

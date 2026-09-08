@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.2.0] - 2026-09-06
+## [2.0.0] - 2026-09-08
 
 ### Added
 
@@ -15,10 +15,27 @@
 - Scrubbing the curve: drag across it for that hour's time, temperature and
   condition; the day's high/low step aside while a finger is down and return on release.
 - Hovering the curve reads out as well as dragging, so it works with a mouse.
+- **Elapsed time on today's curve.** Hours that have already happened are drawn as history —
+  dashed, colourless curve under a drained fill, with their condition glyphs, hour labels and any
+  high/low marker dimmed to match, and a hairline at the current moment. The split is the real clock
+  position rather than the nearest hour, interpolated between the two hours either side, so it
+  creeps through the day instead of jumping hourly and the two halves meet without a seam. Only the
+  row for today has a past; every other day draws live throughout.
 
 - Motion throughout: the tiles FLIP into their new places when the day card opens or closes, the
   card springs out of the daily list rather than appearing, and the notch travels between days
   instead of jumping. All on one overshooting ease, and all suppressed under `prefers-reduced-motion`.
+- The day card's header is packed to the left — previous, date, next — leaving the rest of the row
+  free for further controls. The date sits centred in a fixed-width box, so the next button never
+  shifts as the date changes length and the gaps either side of the date stay even.
+- The temperature scale carries **at most four labels**, always whole numbers. A fixed 5° step gave
+  a warm day six of them, which crowded the axis for no extra information. Only the labels are
+  thinned — the bounds still round tight to the day's own range, so the curve goes on filling the
+  plot.
+- **Changing day pushes rather than cuts.** From the arrows or from another row of the daily list,
+  the day being left accelerates out and fades while the new one settles in from the opposite side,
+  so the direction of travel says which way through the week you went. The buttons stay put; only
+  the content moves.
 
 ### Changed
 
