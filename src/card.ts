@@ -1571,7 +1571,7 @@ export class FruityWeatherCard extends LitElement {
       readout.style.transform = 'translateX(0)';
       return;
     }
-    const sheet = this.renderRoot.querySelector('.sheet') as HTMLElement | null;
+    const sheet = this.renderRoot.querySelector('.daycard') as HTMLElement | null;
     const n = this._hoursForDay(this._sheetDay ?? 0).length;
     if (!sheet || n < 2) return;
     const frac = this._hourScrub / (n - 1);
@@ -1609,14 +1609,24 @@ export class FruityWeatherCard extends LitElement {
     return new Intl.DateTimeFormat(lang, { hour: 'numeric', minute: '2-digit', hour12 }).format(d);
   }
 
-  /** "12AM" / "6PM" style, or 24-hour when that is what the user has set. */
-  private _hourLabel(hour: number): string {
+  /**
+   * "6AM" / "6PM", or 24-hour when that is what the user has set. The period
+   * marker is split out so it can be set smaller than the hour, the way the
+   * sunrise/sunset tile prints its times.
+   */
+  private _hourLabel(hour: number): TemplateResult {
     const tf = this.hass?.locale?.time_format;
     const hour12 = tf === '12' ? true : tf === '24' ? false : undefined;
     const lang = this.hass?.locale?.language ?? navigator.language;
-    return new Intl.DateTimeFormat(lang, { hour: 'numeric', hour12 })
-      .format(new Date(2000, 0, 1, hour))
-      .replace(/\s+/g, '');
+    const parts = new Intl.DateTimeFormat(lang, { hour: 'numeric', hour12 })
+      .formatToParts(new Date(2000, 0, 1, hour));
+    let digits = '';
+    let ap = '';
+    for (const p of parts) {
+      if (p.type === 'dayPeriod') ap = p.value;
+      else if (!(p.type === 'literal' && ap)) digits += p.value;
+    }
+    return html`${digits.trim()}${ap ? html`<span class="ap">${ap}</span>` : nothing}`;
   }
 
   /**
@@ -2267,6 +2277,13 @@ export class FruityWeatherCard extends LitElement {
       transform: translateX(-50%);
       font-size: var(--d-font);
       color: var(--fwc-dimmer);
+      /* These sit over the fill at one end of the curve and over the card at
+         the other, so neither a light nor a dark colour alone stays legible.
+         A dark halo keeps the glyph readable against both without changing the
+         colour, which is matched to the temperature scale. */
+      text-shadow:
+        0 0 3px rgba(0, 0, 0, 0.9),
+        0 0 6px rgba(0, 0, 0, 0.65);
     }
     .smark.hi span { bottom: 13px; }
     .smark.lo span { top: 13px; }
@@ -2293,6 +2310,11 @@ export class FruityWeatherCard extends LitElement {
       transform: translateX(-50%);
       font-size: var(--d-font);
       white-space: nowrap;
+    }
+    .sheet-xaxis .ap {
+      position: static;
+      transform: none;
+      font-size: calc(var(--d-font) - 2px);
     }
     /* Edge labels are pinned inward; centred on 0% or 100% half of each would
        fall outside the sheet's padding box and be clipped. */
@@ -2323,8 +2345,15 @@ export class FruityWeatherCard extends LitElement {
      * sheet. Same box model in both states, no jump.
      */
     .sheet-readout {
-      display: inline-block;
-      vertical-align: top;
+      /*
+       * align-self, NOT display:inline-block — the day card is a flex column and
+       * flex items are BLOCKIFIED, so inline-block silently computed to block,
+       * the readout filled the card's width, and the tracking clamp pinned it to
+       * the left edge. Cross-axis start sizing gives it its content width, which
+       * is what makes it slidable. Flex items never collapse margins either, so
+       * the height stays stable between states for free.
+       */
+      align-self: flex-start;
       transform: translateX(0);
     }
     .sheet-readout.scrubbing { will-change: transform; }
