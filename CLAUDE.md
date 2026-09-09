@@ -244,6 +244,34 @@ A `position: relative` sibling paints over a static sibling's background regardl
 order in the markup. When the hero artwork bled under the hourly panel, the fix was to make the
 panel positioned — not to reorder or restack.
 
+### `forecast_source: open-meteo` swaps the SOURCE, not the shapes
+
+`_applyOpenMeteoForecast` rebuilds `_daily` and `_hourly` into exactly the `ForecastItem` shape the
+entity's subscription produces, so no consumer downstream knows the difference and there is one
+place the two can diverge. Two traps, both hit while building it:
+
+- **The entity's subscription still fires.** Assigning `_daily`/`_hourly` in the callback
+  unconditionally meant an entity push silently replaced the Open-Meteo data until the next hourly
+  refetch — the card sat on whichever provider had spoken most recently. The callbacks now keep the
+  entity's copy in `_entityDaily`/`_entityHourly` and only draw it when the entity is the source.
+  Those copies are also the fallback when the fetch fails.
+- **`updated()` gated the fetch on `_daily.length`.** Under `open-meteo` that list is filled BY the
+  fetch, so the gate deadlocked and the card stayed permanently empty. The gate now passes when the
+  option is set, regardless.
+
+`entity` stays required — the unit strings come from it and it is the fallback — so
+`_config.entity` must never become optional.
+
+### The daily list panel is a FIXED height, so rows shrink as days grow
+
+Two tiles tall however many rows it holds: six rows are 50px, ten are 30px. A glyph plus a chance
+underneath needs 36px, so past about seven rows the caption printed over the row below.
+`roomForProb` in `_renderDaily` drops the caption rather than overlap.
+
+This was invisible until `forecast_source: open-meteo` arrived, because met.no publishes six daily
+entries — `daily_days: 10` had never actually produced ten rows. Expect more of this: options that
+looked fine for years were only ever exercised against met.no's limits.
+
 ### The daily list and the day sheet use DIFFERENT providers, on purpose
 
 Measured 2026-09-06: `weather.get_forecasts(type: hourly)` on met.no returns exactly **48 entries**

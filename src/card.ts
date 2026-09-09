@@ -158,6 +158,29 @@ interface CardConfig {
   name?: string;
   sun_entity?: string;
   /**
+   * Where the forecast comes from.
+   *
+   * `entity` (default) renders whatever `weather.*` entity you point the card
+   * at, which is the Home Assistant convention and keeps your choice of
+   * integration meaningful. The day card's curve and the chance of
+   * precipitation still come from Open-Meteo either way — no integration
+   * publishes the latter, and met.no caps hourly data at 48 entries.
+   *
+   * `open-meteo` puts EVERYTHING on that one fetch: present conditions, the
+   * hourly strip, the daily list and the tiles' fallbacks. That removes the
+   * class of contradiction that comes from showing two models' opinions side by
+   * side, and over central Europe it is the finer grid — measured 2026-09-09,
+   * Open-Meteo resolves a difference 1km away where met.no returns the same
+   * value across 14km, because met.no's own high-resolution model covers only
+   * the Nordics and serves ~9km ECMWF elsewhere.
+   *
+   * The costs: `entity` stops selecting your forecast, and one provider outage
+   * empties the card rather than degrading it. `entity` is still required —
+   * it supplies the unit strings and is the fallback while the fetch is in
+   * flight or if it fails.
+   */
+  forecast_source?: 'entity' | 'open-meteo';
+  /**
    * Serve condition glyphs from here instead of the bundled set, e.g.
    * `/local/my-weather-icons`. Files must be named after the HA condition
    * glyph keys in ICON_DAY below, with a .svg extension. Intended for dropping
@@ -390,6 +413,9 @@ export class FruityWeatherCard extends LitElement {
   /** Hour being scrubbed on the sheet's curve; null restores the H/L readout. */
   @state() private _hourScrub: number | null = null;
   @state() private _hourlyDays?: HourlyDays;
+  /** The entity's own forecast, kept whichever source is drawn — see _subscribe. */
+  private _entityDaily: ForecastItem[] = [];
+  private _entityHourly: ForecastItem[] = [];
   @state() private _hourlyError = false;
   /** Temperature on every open; sticky across day changes while the card lives. */
   @state() private _sheetMode: SheetMode = 'temp';
@@ -499,7 +525,11 @@ export class FruityWeatherCard extends LitElement {
     // Needed by the daily list, not just the day card, so it cannot wait for an
     // open. Cheap to call repeatedly: it returns early unless the cache is stale
     // and the backoff has elapsed.
-    if (this._daily.length) void this._ensureHourly();
+    // Under `open-meteo` this must NOT wait for `_daily`: that list is now
+    // filled BY the fetch, so gating the fetch on it deadlocks — the card sits
+    // empty forever. Waiting is only right when the entity is the source, where
+    // it avoids fetching before there is anything to show alongside.
+    if (this._wantsOpenMeteo || this._daily.length) void this._ensureHourly();
     if (this._sheetDay !== null) { this._positionArrow(); this._positionReadout(); }
   }
 
@@ -572,8 +602,17 @@ export class FruityWeatherCard extends LitElement {
       this._hourlyDays = await fetchHourlyDays(lat, lon, force);
       this._hourlyBackoff = 0;
       this._hourlyRetryAt = 0;
+      if (this._config?.forecast_source === 'open-meteo') this._applyOpenMeteoForecast();
     } catch (err) {
       this._hourlyError = true;
+      // Degrade to the entity rather than showing nothing. Under
+      // `forecast_source: open-meteo` this is the whole safety net: the card
+      // loses the chance of precipitation and the ten-day curve, but the hero,
+      // the strip and the daily list keep working.
+      if (this._wantsOpenMeteo && !this._hourlyDays) {
+        if (this._entityDaily.length) this._daily = this._entityDaily;
+        if (this._entityHourly.length) this._hourly = this._entityHourly;
+      }
       this._hourlyBackoff = this._hourlyBackoff ? Math.min(this._hourlyBackoff * 2, 15 * 60_000) : 60_000;
       this._hourlyRetryAt = Date.now() + this._hourlyBackoff;
       console.warn(
@@ -590,6 +629,62 @@ export class FruityWeatherCard extends LitElement {
    * is too slight to print. The provider's own daily aggregate is used rather
    * than the maximum of the hours, so the figure matches what it publishes.
    */
+  /** What the config asks for, regardless of whether the data has arrived. */
+  private get _wantsOpenMeteo(): boolean {
+    return this._config?.forecast_source === 'open-meteo';
+  }
+
+  /** True when the card should ignore the entity's forecast entirely. */
+  private get _allOpenMeteo(): boolean {
+    return this._wantsOpenMeteo && !!this._hourlyDays;
+  }
+
+  /**
+   * Rebuild `_daily` and `_hourly` from the Open-Meteo fetch.
+   *
+   * Deliberately produces the same `ForecastItem` shape the weather entity's
+   * subscription produces, so every consumer downstream is untouched and there
+   * is only ONE place where the two sources can diverge. Called after a
+   * successful fetch; the entity's own subscription keeps running and takes
+   * over again the moment the source option changes back.
+   */
+  private _applyOpenMeteoForecast(): void {
+    const h = this._hourlyDays;
+    if (!h) return;
+
+    const daily: ForecastItem[] = [];
+    for (const [date, stat] of [...h.dayStat.entries()].sort()) {
+      daily.push({
+        datetime: `${date}T00:00:00`,
+        condition: stat.condition,
+        temperature: stat.hi,
+        templow: stat.lo,
+        precipitation: stat.precipMm,
+        precipitation_probability: h.dayProb.get(date),
+      });
+    }
+    if (daily.length) this._daily = daily;
+
+    // The strip wants a flat run of hours from now on, where `days` is keyed
+    // by date; and it labels its first cell "Now", so start at the current
+    // hour rather than dropping it.
+    const from = Date.now() - 3600_000;
+    const hourly: ForecastItem[] = [];
+    for (const [, list] of [...h.days.entries()].sort()) {
+      for (const p of list) {
+        if (p.time < from) continue;
+        hourly.push({
+          datetime: new Date(p.time).toISOString(),
+          condition: p.condition,
+          temperature: p.temp,
+          precipitation: p.precipMm,
+          precipitation_probability: p.precipProb,
+        });
+      }
+    }
+    if (hourly.length) this._hourly = hourly;
+  }
+
   private _dayProb(index: number): number | undefined {
     const day = this._daily[index];
     if (!day || !this._hourlyDays) return undefined;
@@ -1200,8 +1295,22 @@ export class FruityWeatherCard extends LitElement {
       }
     };
 
-    this._unsubHourly = await sub('hourly', (f) => { this._hourly = f; });
-    this._unsubDaily = await sub('daily', (f) => { this._daily = f; });
+    // The entity's own forecast is always kept, even when it is not what gets
+    // drawn: it is the fallback if the Open-Meteo fetch fails, and the card
+    // switches straight back to it if the source option changes.
+    //
+    // Assigning `_daily`/`_hourly` unconditionally here was a bug — under
+    // `forecast_source: open-meteo` an entity push would silently replace the
+    // Open-Meteo data until the next hourly refetch, so the card would sit on
+    // whichever provider had spoken most recently.
+    this._unsubHourly = await sub('hourly', (f) => {
+      this._entityHourly = f;
+      if (!this._wantsOpenMeteo) this._hourly = f;
+    });
+    this._unsubDaily = await sub('daily', (f) => {
+      this._entityDaily = f;
+      if (!this._wantsOpenMeteo) this._daily = f;
+    });
   }
 
   // -- data accessors -------------------------------------------------------
@@ -1217,7 +1326,36 @@ export class FruityWeatherCard extends LitElement {
       const s = this.hass?.states[id];
       if (s && s.state !== 'unavailable' && s.state !== 'unknown') return num(s.state);
     }
+    if (this._allOpenMeteo) {
+      const c = this._hourlyDays!.current;
+      if (c) {
+        const fromOM: Partial<Record<keyof CurrentConfig, number | undefined>> = {
+          temperature: c.temp,
+          feels_like: c.apparentTemp,
+          humidity: c.humidity,
+          wind_speed: c.windSpeed,
+          wind_gust: c.windGust,
+          wind_bearing: c.windBearing,
+        };
+        if (key in fromOM) return fromOM[key];
+      }
+      // dew_point and precipitation_today are not requested — the first is
+      // derivable but not worth a field, the second needs a rain gauge to be
+      // meaningful. Both fall through to the entity below.
+    }
     return attr ? num(this._weather?.attributes[attr]) : undefined;
+  }
+
+  /**
+   * Present condition slug, from whichever source is configured. The hero's
+   * artwork and its caption both read this.
+   */
+  private get _currentCondition(): string {
+    if (this._allOpenMeteo) {
+      const c = this._hourlyDays!.current;
+      if (c) return c.condition;
+    }
+    return this._weather?.state ?? '';
   }
 
   /**
@@ -1410,10 +1548,11 @@ export class FruityWeatherCard extends LitElement {
     const today = this._daily[0];
     const hi = num(today?.temperature);
     const lo = num(today?.templow);
-    const label = CONDITION_LABEL[w.state] ?? w.state;
+    const state = this._currentCondition || w.state;
+    const label = CONDITION_LABEL[state] ?? state;
 
     const tap = this._tap('hero');
-    const scene = this._heroScene(w.state);
+    const scene = this._heroScene(state);
     const c = this._config!;
     const px = (v: number | string) => (typeof v === 'number' ? `${v}px` : v);
     const vars: string[] = [];
@@ -1479,7 +1618,7 @@ export class FruityWeatherCard extends LitElement {
     // iOS heads the strip with a one-line plain-English summary.
     const gust = this._override('wind_gust');
     const gustUnit = this._overrideUnit('wind_gust', 'wind_speed_unit') ?? 'km/h';
-    const cond = CONDITION_LABEL[this._weather?.state ?? ''] ?? '';
+    const cond = CONDITION_LABEL[this._currentCondition] ?? '';
     const summary = cond
       ? `${cond} conditions expected for the rest of the day.`
         + (gust !== undefined ? ` Wind gusts are up to ${round(gust)} ${gustUnit}.` : '')
@@ -1559,6 +1698,19 @@ export class FruityWeatherCard extends LitElement {
     const days = this._daily.slice(0, this._config!.daily_days ?? 10);
     if (!days.length) return nothing;
 
+    /*
+     * The panel is a FIXED two-tile height however many rows it holds, so the
+     * rows shrink as `daily_days` grows. Measured: 6 rows are 50px and take the
+     * glyph and its chance comfortably; 10 rows are 30px, and the pair needs 36,
+     * so the caption printed over the row beneath it.
+     *
+     * This only became visible when `forecast_source: open-meteo` arrived —
+     * met.no publishes six daily entries, so `daily_days: 10` had never actually
+     * produced ten rows before. Dropping the caption is the graceful failure:
+     * more days, or the chances, but the panel cannot hold both.
+     */
+    const roomForProb = days.length <= 7;
+
     const lows = days.map((d) => num(d.templow)).filter((n): n is number => n !== undefined);
     const highs = days.map((d) => num(d.temperature)).filter((n): n is number => n !== undefined);
     const min = Math.min(...lows, ...highs);
@@ -1600,6 +1752,7 @@ export class FruityWeatherCard extends LitElement {
               <div class="dcond">
                 <img class="dicon" src=${this._iconUrl(iconFor(d.condition, i === 0 && this._isNight))} alt=${d.condition ?? ''} />
                 ${(() => {
+                  if (!roomForProb) return nothing;
                   const p = this._dayProb(i);
                   return p === undefined ? nothing : html`<span class="dprob">${Math.round(p)}%</span>`;
                 })()}

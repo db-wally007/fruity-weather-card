@@ -78,7 +78,8 @@ is identical to setting it to its default.
 | `type` | string | – | `custom:fruity-weather-card` |
 | `entity` | string | **required** | The weather entity. |
 | `name` | string | entity name | Location label in the hero. |
-| `sun_entity` | string | `sun.sun` | Drives day/night artwork and the sun arc. |
+| `sun_entity` | string | `sun.sun` | Drives the sun arc. |
+| `forecast_source` | `entity` \| `open-meteo` | `entity` | Where the forecast comes from — see below. |
 | `icons_path` | string | bundle-relative `../icons` | Folder of condition PNGs. See [Icons](#icons). |
 | `backgrounds_path` | string | `/local/weather-bg` | Folder of `hero-*.jpg` scenes. |
 | `hourly_hours` | number | `24` | Cells in the hourly strip. |
@@ -91,6 +92,40 @@ is identical to setting it to its default.
 | `hero_bleed_x` / `hero_bleed_top` | number \| string | – | Push the hero artwork past the card box to reach a host's own edge. |
 | `hero_extend` | number \| string | – | Grow the hero taller. |
 | `hero_radius` | number \| string | – | Round the hero's top corners to match the host. |
+
+### `forecast_source`
+
+`entity` (default) renders whatever `weather.*` entity you point the card at, which is the Home
+Assistant convention and keeps your choice of integration meaningful.
+
+`open-meteo` puts **everything** — present conditions, the hourly strip, the daily list and the
+tiles' fallbacks — on the single Open-Meteo request the card already makes for the chance of
+precipitation and the day curve.
+
+Why you might want it:
+
+- **No contradictions.** Two providers side by side disagree, and it shows: a rain glyph over a
+  blank chance, a list high that differs from the peak of its own curve.
+- **Often a finer grid.** Over central Europe Open-Meteo serves ICON-D2 at ~2.2km. Measured
+  2026-09-09 from one location, it resolves a different temperature 1km away where met.no returns
+  the same value across 14km — met.no's own high-resolution model covers the Nordics and it serves
+  ~9km ECMWF elsewhere. Finer is not automatically *more accurate*, but it does not average your
+  valley away.
+- **Ten days of everything.** Met.no publishes six daily entries and 48 hourly ones.
+
+What it costs:
+
+- `entity` no longer selects your forecast. If you deliberately chose AccuWeather or a national
+  service, the card stops following it.
+- One provider outage empties the card instead of degrading it. The entity is the fallback while the
+  fetch is in flight or after it fails, so this is softer than it sounds — and the pyscript cache
+  below keeps a stale file usable.
+
+`entity` remains **required** either way: it supplies the unit strings and is that fallback.
+
+Note that the daily list panel is a fixed height however many rows it holds, so with more than about
+seven days the rows become too short to carry a chance under each glyph and the chances are dropped.
+More days, or the chances — not both.
 
 ### `current`
 

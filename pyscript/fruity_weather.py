@@ -76,7 +76,16 @@ TIMEOUT = 60
 # the API response, so a mismatch shows up as missing data rather than an error.
 HOURLY_OUT_PATH = "/config/www/fruity-weather-card/precip-hourly.json"
 HOURLY_VARS = "temperature_2m,weather_code,precipitation_probability,precipitation"
-DAILY_VARS = "precipitation_probability_max,sunrise,sunset"
+DAILY_VARS = (
+    "precipitation_probability_max,sunrise,sunset"
+    ",temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum"
+)
+# Only needed by forecast_source: open-meteo, but always fetched: it rides the
+# same request, and a file missing them would silently degrade that mode.
+CURRENT_VARS = (
+    "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code"
+    ",wind_speed_10m,wind_direction_10m,wind_gusts_10m"
+)
 HOURLY_DAYS = 10
 
 
@@ -189,6 +198,7 @@ def _fetch_hourly(lat0, lon0):
         + "?latitude=" + str(lat0) + "&longitude=" + str(lon0)
         + "&hourly=" + HOURLY_VARS
         + "&daily=" + DAILY_VARS
+        + "&current=" + CURRENT_VARS
         + "&forecast_days=" + str(HOURLY_DAYS)
         + "&timezone=auto"
     )
@@ -214,11 +224,20 @@ def _fetch_hourly(lat0, lon0):
     for key in DAILY_VARS.split(","):
         out_daily[key] = daily.get(key) or []
 
+    # Current conditions are a flat object, not arrays; copy only what is asked
+    # for, same rule as the two blocks above.
+    cur = data.get("current") or {}
+    out_current = {}
+    for key in CURRENT_VARS.split(","):
+        if cur.get(key) is not None:
+            out_current[key] = cur.get(key)
+
     return {
-        "v": 2,
+        "v": 3,
         "fetchedAt": int(time.time() * 1000),
         "hourly": out_hourly,
         "daily": out_daily,
+        "current": out_current,
     }
 
 

@@ -1,5 +1,33 @@
 # Changelog
 
+## [3.1.0] - 2026-09-09
+
+### Added
+
+- **`forecast_source`** — `entity` (default) or `open-meteo`. On `open-meteo` the present
+  conditions, the hourly strip, the daily list and the tiles' fallbacks all come from the one fetch
+  the card already makes for the chance of precipitation and the day curve, instead of being split
+  between two providers.
+
+  Worth it because every contradiction the card has had came from showing two models' opinions side
+  by side, and because over central Europe Open-Meteo is the finer grid: measured 2026-09-09, it
+  resolves a difference 1 km away where met.no returns the same value across 14 km, met.no's own
+  high-resolution model covering only the Nordics.
+
+  The costs, stated plainly: `entity` stops selecting your forecast, and one provider outage empties
+  the card rather than degrading it. The entity is still required — it supplies the unit strings and
+  is the fallback if the fetch fails or has not landed yet. The default is unchanged, because a
+  Home Assistant card rendering the entity you point it at is the convention and keeps your choice
+  of integration meaningful.
+
+### Fixed
+
+- The chance of precipitation is no longer printed in the daily list when there are too many rows
+  for it to fit. The panel is a fixed height whatever number of days it shows, so past about seven
+  the rows are too short for a glyph and a caption and the caption printed over the row beneath.
+  Only visible with `forecast_source: open-meteo`, since met.no publishes six daily entries and
+  `daily_days: 10` had never actually produced ten rows.
+
 ## [3.0.3] - 2026-09-09
 
 ### Fixed

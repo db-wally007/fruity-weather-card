@@ -66,10 +66,36 @@ export interface HourlyDays {
    * absent from this map, and the caller falls back.
    */
   daySun: Map<string, { rise: number; set: number }>;
+  /**
+   * Per-day high, low, condition and rainfall — everything the daily list
+   * needs. Only used under `forecast_source: open-meteo`; otherwise the list
+   * stays on the Home Assistant weather entity.
+   */
+  dayStat: Map<string, DayStat>;
+  /** Present conditions, same proviso as `dayStat`. */
+  current?: CurrentPoint;
 }
 
-/** Bumped from v1: HourPoint gained precipitation and the payload gained dayProb. */
-const CACHE_KEY = 'fruity-weather-card:hourly-10d:v3';
+export interface DayStat {
+  hi?: number;
+  lo?: number;
+  condition: string;
+  precipMm?: number;
+}
+
+export interface CurrentPoint {
+  temp?: number;
+  apparentTemp?: number;
+  humidity?: number;
+  windSpeed?: number;
+  windGust?: number;
+  windBearing?: number;
+  condition: string;
+}
+
+/** Bump on any shape change: v2 added precipitation, v3 sun times, v4 daily
+ *  stats and current conditions. A stale shape is discarded, not migrated. */
+const CACHE_KEY = 'fruity-weather-card:hourly-10d:v4';
 
 /**
  * Optional shared cache written by `pyscript/fruity_weather.py`, same
@@ -85,7 +111,17 @@ const LOCAL_HOURLY_URL = '/local/fruity-weather-card/precip-hourly.json';
  * as the API response, so a mismatch shows up as missing data rather than an error.
  */
 export const HOURLY_VARS = 'temperature_2m,weather_code,precipitation_probability,precipitation';
-export const DAILY_VARS = 'precipitation_probability_max,sunrise,sunset';
+export const DAILY_VARS =
+  'precipitation_probability_max,sunrise,sunset,temperature_2m_max,temperature_2m_min'
+  + ',weather_code,precipitation_sum';
+/**
+ * Only requested so the card can run entirely on this provider
+ * (`forecast_source: open-meteo`). Unused otherwise, and it costs nothing to
+ * carry: it rides the one request the card already makes.
+ */
+export const CURRENT_VARS =
+  'temperature_2m,apparent_temperature,relative_humidity_2m,weather_code'
+  + ',wind_speed_10m,wind_direction_10m,wind_gusts_10m';
 /** The provider updates hourly; refetching more often just spends quota. */
 export const HOURLY_TTL_MS = 60 * 60 * 1000;
 
@@ -119,6 +155,8 @@ function readCache(): HourlyDays | undefined {
       days: Record<string, HourPoint[]>;
       dayProb?: Record<string, number>;
       daySun?: Record<string, { rise: number; set: number }>;
+      dayStat?: Record<string, DayStat>;
+      current?: CurrentPoint;
     };
     if (!c?.fetchedAt || Date.now() - c.fetchedAt > HOURLY_TTL_MS) return undefined;
     return {
@@ -126,6 +164,8 @@ function readCache(): HourlyDays | undefined {
       days: new Map(Object.entries(c.days)),
       dayProb: new Map(Object.entries(c.dayProb ?? {})),
       daySun: new Map(Object.entries(c.daySun ?? {})),
+      dayStat: new Map(Object.entries(c.dayStat ?? {})),
+      current: c.current,
     };
   } catch {
     return undefined;
@@ -141,6 +181,8 @@ function writeCache(v: HourlyDays): void {
         days: Object.fromEntries(v.days),
         dayProb: Object.fromEntries(v.dayProb),
         daySun: Object.fromEntries(v.daySun),
+        dayStat: Object.fromEntries(v.dayStat),
+        current: v.current,
       }),
     );
   } catch {
@@ -163,6 +205,34 @@ interface RawDaily {
   precipitation_probability_max?: (number | null)[];
   sunrise?: (string | null)[];
   sunset?: (string | null)[];
+  temperature_2m_max?: (number | null)[];
+  temperature_2m_min?: (number | null)[];
+  weather_code?: (number | null)[];
+  precipitation_sum?: (number | null)[];
+}
+
+interface RawCurrent {
+  temperature_2m?: number | null;
+  apparent_temperature?: number | null;
+  relative_humidity_2m?: number | null;
+  weather_code?: number | null;
+  wind_speed_10m?: number | null;
+  wind_direction_10m?: number | null;
+  wind_gusts_10m?: number | null;
+}
+
+function readCurrent(c: RawCurrent | undefined): CurrentPoint | undefined {
+  if (!c || c.temperature_2m == null) return undefined;
+  const n = (v: number | null | undefined) => (v == null ? undefined : v);
+  return {
+    temp: n(c.temperature_2m),
+    apparentTemp: n(c.apparent_temperature),
+    humidity: n(c.relative_humidity_2m),
+    windSpeed: n(c.wind_speed_10m),
+    windGust: n(c.wind_gusts_10m),
+    windBearing: n(c.wind_direction_10m),
+    condition: conditionForCode(c.weather_code ?? 3),
+  };
 }
 
 /**
@@ -174,13 +244,19 @@ interface RawDaily {
 function readDaily(d: RawDaily): {
   dayProb: Map<string, number>;
   daySun: Map<string, { rise: number; set: number }>;
+  dayStat: Map<string, DayStat>;
 } {
   const dayProb = new Map<string, number>();
   const daySun = new Map<string, { rise: number; set: number }>();
+  const dayStat = new Map<string, DayStat>();
   const t = d.time ?? [];
   const p = d.precipitation_probability_max ?? [];
   const up = d.sunrise ?? [];
   const down = d.sunset ?? [];
+  const hi = d.temperature_2m_max ?? [];
+  const lo = d.temperature_2m_min ?? [];
+  const code = d.weather_code ?? [];
+  const mm = d.precipitation_sum ?? [];
   for (let i = 0; i < t.length; i++) {
     dayProb.set(t[i], p[i] ?? 0);
     // Absent on a day with no sunrise or sunset at all — polar summer and
@@ -188,8 +264,14 @@ function readDaily(d: RawDaily): {
     const rise = up[i] ? new Date(`${up[i]}:00`).getTime() : NaN;
     const set = down[i] ? new Date(`${down[i]}:00`).getTime() : NaN;
     if (Number.isFinite(rise) && Number.isFinite(set)) daySun.set(t[i], { rise, set });
+    dayStat.set(t[i], {
+      hi: hi[i] ?? undefined,
+      lo: lo[i] ?? undefined,
+      condition: conditionForCode(code[i] ?? 3),
+      precipMm: mm[i] ?? undefined,
+    });
   }
-  return { dayProb, daySun };
+  return { dayProb, daySun, dayStat };
 }
 
 function groupByDay(h: RawHourly): Map<string, HourPoint[]> {
@@ -230,14 +312,18 @@ async function fetchLocalHourly(): Promise<HourlyDays | undefined> {
       fetchedAt?: number;
       hourly?: RawHourly;
       daily?: RawDaily;
+      current?: RawCurrent;
     };
     if (!c?.fetchedAt || !c.hourly?.time?.length) return undefined;
     // Generous next to the in-browser TTL: the writer refreshes on its own
     // schedule and a file a little past the hour still beats a network round
     // trip. Well beyond that it is better to go and ask.
     if (Date.now() - c.fetchedAt > HOURLY_TTL_MS * 3) return undefined;
-    const { dayProb, daySun } = readDaily(c.daily ?? {});
-    return { fetchedAt: c.fetchedAt, days: groupByDay(c.hourly), dayProb, daySun };
+    const { dayProb, daySun, dayStat } = readDaily(c.daily ?? {});
+    return {
+      fetchedAt: c.fetchedAt, days: groupByDay(c.hourly),
+      dayProb, daySun, dayStat, current: readCurrent(c.current),
+    };
   } catch {
     return undefined;
   }
@@ -291,7 +377,7 @@ async function fetchHourlyDaysUncached(
   const url =
     'https://api.open-meteo.com/v1/forecast'
     + `?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}`
-    + `&hourly=${HOURLY_VARS}&daily=${DAILY_VARS}`
+    + `&hourly=${HOURLY_VARS}&daily=${DAILY_VARS}&current=${CURRENT_VARS}`
     + '&forecast_days=10&timezone=auto';
 
   const res = await fetch(url);
@@ -299,6 +385,7 @@ async function fetchHourlyDaysUncached(
   const body = await res.json() as {
     hourly?: Partial<RawHourly>;
     daily?: RawDaily;
+    current?: RawCurrent;
   };
 
   const times = body.hourly?.time ?? [];
@@ -314,9 +401,12 @@ async function fetchHourlyDaysUncached(
     precipitation: col(body.hourly?.precipitation),
   });
 
-  const { dayProb, daySun } = readDaily(body.daily ?? {});
+  const { dayProb, daySun, dayStat } = readDaily(body.daily ?? {});
 
-  const out = { fetchedAt: Date.now(), days, dayProb, daySun };
+  const out = {
+    fetchedAt: Date.now(), days,
+    dayProb, daySun, dayStat, current: readCurrent(body.current),
+  };
   writeCache(out);
   return out;
 }
