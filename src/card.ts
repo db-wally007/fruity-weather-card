@@ -664,7 +664,8 @@ export class FruityWeatherCard extends LitElement {
   private async _switchDay(next: number): Promise<void> {
     const cur = this._sheetDay;
     if (cur === null || cur === next) { this._hourScrub = null; return; }
-    await this._pushSwap(next > cur ? 1 : -1, () => { this._sheetDay = next; });
+    // The whole body moves, date included: the date is what changed.
+    await this._pushSwap(next > cur ? 1 : -1, () => { this._sheetDay = next; }, '.sheet-body');
   }
 
   /**
@@ -674,7 +675,14 @@ export class FruityWeatherCard extends LitElement {
    */
   private async _setSheetMode(mode: SheetMode): Promise<void> {
     if (mode === this._sheetMode) return;
-    await this._pushSwap(mode === 'precip' ? 1 : -1, () => { this._sheetMode = mode; });
+    // Only the CONTENT moves. The date has not changed, and sliding it out and
+    // back in claimed it had — the animation said "new day" when the day was
+    // the same.
+    await this._pushSwap(
+      mode === 'precip' ? 1 : -1,
+      () => { this._sheetMode = mode; },
+      '.sheet-content',
+    );
   }
 
   /**
@@ -682,9 +690,9 @@ export class FruityWeatherCard extends LitElement {
    * toggle: apply `mutate`, then push the old contents out in direction `dir`
    * while the new ones settle in from the opposite side.
    */
-  private async _pushSwap(dir: 1 | -1, mutate: () => void): Promise<void> {
-    const stage = this.renderRoot.querySelector('.sheet-stage') as HTMLElement | null;
-    const body = this.renderRoot.querySelector('.sheet-body') as HTMLElement | null;
+  private async _pushSwap(dir: 1 | -1, mutate: () => void, selector: string): Promise<void> {
+    const body = this.renderRoot.querySelector(selector) as HTMLElement | null;
+    const stage = body?.parentElement ?? null;
     this._hourScrub = null;
 
     if (!stage || !body || FruityWeatherCard._reducedMotion()) {
@@ -694,9 +702,13 @@ export class FruityWeatherCard extends LitElement {
 
     // Tapping faster than the animation runs would otherwise stack clones on
     // top of each other.
-    stage.querySelectorAll('.sheet-body.ghost').forEach((g) => g.remove());
+    stage.querySelectorAll(':scope > .ghost').forEach((g) => g.remove());
     const ghost = body.cloneNode(true) as HTMLElement;
     ghost.classList.add('ghost');
+    // The clone is absolutely positioned, so it has to be told where the
+    // original sat: not always at the top of its parent, since the content
+    // swap leaves the date row above it in place.
+    ghost.style.top = `${body.offsetTop}px`;
     stage.appendChild(ghost);
 
     const travel = Math.min(stage.getBoundingClientRect().width * 0.16, 90);
@@ -732,17 +744,25 @@ export class FruityWeatherCard extends LitElement {
   }
 
   /**
-   * Dismiss on a tap anywhere that is not the card or the daily list. Bound on
-   * window in the CAPTURE phase because the regions that would otherwise
-   * swallow it — tiles with their own tap actions — stop propagation. The daily
-   * list is excluded so its rows keep their own switch/toggle behaviour.
+   * Dismiss on a tap anywhere that is not the card, the daily list or the
+   * hourly strip. Bound on window in the CAPTURE phase because the regions that
+   * would otherwise swallow it — tiles with their own tap actions — stop
+   * propagation.
+   *
+   * The daily list and the strip are excluded because both own a tap that
+   * opens or toggles this card. Without that exclusion the capture handler
+   * closes first and their own handler immediately reopens, so a tap meant to
+   * dismiss plays a close and an open back to back instead of doing nothing.
    */
   private _outsideTap = (ev: Event): void => {
     if (this._sheetDay === null) return;
     const path = ev.composedPath();
     const card = this.renderRoot.querySelector('.daycard');
     const daily = this.renderRoot.querySelector('.panel.daily');
-    if ((card && path.includes(card)) || (daily && path.includes(daily))) return;
+    const strip = this.renderRoot.querySelector('.panel.strip');
+    if ((card && path.includes(card))
+      || (daily && path.includes(daily))
+      || (strip && path.includes(strip))) return;
     this._closeDaySheet();
   };
 
@@ -1465,7 +1485,20 @@ export class FruityWeatherCard extends LitElement {
         + (gust !== undefined ? ` Wind gusts are up to ${round(gust)} ${gustUnit}.` : '')
       : '';
 
-    const tap = this._tap('hourly');
+    // Tapping the strip opens TODAY's detail card by default — the strip and
+    // that card show the same hours, so it is the obvious place to go for more
+    // of what you are already looking at, and it matches tapping the first row
+    // of the daily list. `tap_actions.hourly` still overrides it for anyone who
+    // wants somewhere else; `action: none` disables it entirely.
+    const configured = this._tap('hourly');
+    const explicit = this._config?.tap_actions?.hourly;
+    const tap = configured
+      ?? (explicit?.action === 'none' ? undefined : (ev: Event) => {
+        ev.stopPropagation();
+        if (this._movedSincePointer(ev)) return;
+        if (this._sheetDay === 0) this._closeDaySheet();
+        else this._openDaySheet(0);
+      });
     return html`
       <div class="panel strip" ?tappable=${!!tap}
            @pointerdown=${this._markPointer} @click=${tap}>
@@ -1634,7 +1667,7 @@ export class FruityWeatherCard extends LitElement {
                   weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
                 })}
               </div>
-              ${this._renderSheetBody(hours, unit, day)}
+              <div class="sheet-content">${this._renderSheetBody(hours, unit, day)}</div>
             </div>
           </div>
       </div>
@@ -2540,8 +2573,13 @@ export class FruityWeatherCard extends LitElement {
     /* The stage clips nothing itself — the card's own overflow does that — but
        it gives the outgoing clone something to be absolutely positioned in. */
     .sheet-stage { position: relative; flex: 1 1 auto; min-height: 0; }
-    .sheet-body { display: flex; flex-direction: column; }
-    .sheet-body.ghost { position: absolute; top: 0; left: 0; width: 100%; pointer-events: none; }
+    .sheet-body { position: relative; display: flex; flex-direction: column; }
+    /* Everything below the date row. Its own element so a series toggle can
+       move it while the date, which has not changed, stays put. */
+    .sheet-content { display: flex; flex-direction: column; }
+    /* The outgoing clone, whichever of the two is being pushed. Its top offset
+       is set inline from the original's position within its parent. */
+    .ghost { position: absolute; left: 0; width: 100%; pointer-events: none; }
         /* Typography below is matched to its counterpart in the daily list, so the
        two cards read as one: date to .dday, the scale to .dlo, the hour row to
        .dhi. Sizes come from the same --d-font token rather than being restated. */
@@ -2613,10 +2651,17 @@ export class FruityWeatherCard extends LitElement {
     }
     .sheet-unit { font-size: calc(var(--d-font) * 0.85); color: var(--fwc-dim); margin-top: 1px; }
 
+    /* The bottom margin is the one that matters: it used to be 2px, which let a
+       glyph very nearly touch a curve reaching the top of its band — most
+       visible on a 100% chance of precipitation. Widened to 11px, taking 5px
+       from the top margin and spending the rest on height. That pushes the plot
+       and the hour row down with it, which the card can afford: the hour labels
+       still finish well inside the bottom padding, and the card's hidden
+       overflow clips at the padding box, not the content box. */
     .sheet-glyphs {
       position: relative;
       height: var(--fwc-icon);
-      margin: 12px 42px 2px 0;
+      margin: 7px 42px 11px 0;
     }
     .sglyph {
       position: absolute;
@@ -2661,7 +2706,9 @@ export class FruityWeatherCard extends LitElement {
     .sheet-hi.precip, .scrub-temp.precip { color: var(--fwc-precip); }
     .now-line {
       position: absolute;
-      top: calc(-1 * (var(--fwc-icon) + 2px));
+      /* Reaches the top of the glyph row: the glyph height plus its bottom
+         margin. Keep in step with .sheet-glyphs. */
+      top: calc(-1 * (var(--fwc-icon) + 11px));
       bottom: 0;
       border-left: 1px solid rgba(255, 255, 255, 0.16);
       pointer-events: none;
@@ -2969,7 +3016,7 @@ export class FruityWeatherCard extends LitElement {
     /* The sunrise/sunset caption is deliberately NOT dimmed or shrunk: it reads
        as one continuous row of labels with the hourly temperatures. */
     .cell-val {
-      margin-top: calc(var(--fwc-icon) * 0.63);
+      margin-top: calc(var(--fwc-icon) * 0.5);
       font-size: calc(var(--d-font) * 0.92);
       font-weight: 600;
     }

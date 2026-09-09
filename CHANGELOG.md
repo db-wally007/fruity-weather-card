@@ -1,5 +1,30 @@
 # Changelog
 
+## [3.0.2] - 2026-09-09
+
+### Added
+
+- **Tapping the hourly strip opens today's detail card.** The strip and that card cover the same
+  hours, so it is the obvious place to go for more of what you are already looking at, and it
+  matches tapping the first row of the daily list. `tap_actions.hourly` still overrides it, and
+  `action: none` disables it.
+
+### Changed
+
+- The day card's condition glyphs sit further off the plot — the gap went from 2px to 11px. A curve
+  reaching the top of its band used to very nearly touch the glyph above it, most visible on a 100%
+  chance of precipitation.
+
+### Fixed
+
+- **Switching between the temperature and precipitation charts no longer animates the date.** The
+  date was inside the element being pushed, so a series toggle slid it out and back in — claiming
+  the day had changed when only the chart had. A day change still moves the whole header, because
+  there the date is what changed.
+- Tapping the strip while the day card was open closed and immediately reopened it, playing two
+  animations for one tap. The window-level dismiss handler now excludes the strip, as it already
+  did the daily list, so the tap toggles cleanly.
+
 ## [3.0.1] - 2026-09-08
 
 ### Added

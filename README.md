@@ -114,6 +114,10 @@ Regions: `hero`, `hourly`, `daily`, `sun`, `wind`, `precipitation`, `feels_like`
 Regions with no entry stay inert — no cursor change, no handler. The map tile is not listed because
 its tap already expands it.
 
+`hourly` is the exception: with no entry, tapping the strip opens **today's day detail**, since the
+two show the same hours. Give it an action to send the tap somewhere else, or `action: none` to
+make it inert like the rest.
+
 ```yaml
 tap_actions:
   wind:

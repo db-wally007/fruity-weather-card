@@ -29,6 +29,23 @@ dist/                the built bundle — COMMITTED on purpose (HACS installs it
 
 ## Things that will bite you
 
+### NEVER put a backtick in a comment inside the `css` template
+
+The styles are one enormous tagged template literal. A backtick anywhere inside it — including in a
+`/* … */` comment — **terminates the literal**, and the error surfaces hundreds of lines away as
+`TS1005: ';' expected` or an esbuild failure pointing at whatever rule happens to follow.
+
+This has broken the build **four times**, every time while writing an explanatory comment and
+reaching for backticks to quote a property or value out of habit. Write `overflow: hidden` or
+"the non-scaling-stroke vector-effect" as plain words. The same applies to the `html` templates.
+
+If a build suddenly fails with a syntax error in a stylesheet you did not touch, this is the first
+thing to check:
+
+```bash
+awk '/static styles = css`/,/^  `;/' src/card.ts | grep -n '`'
+```
+
 ### Icons are runtime files with no fallback
 
 `_iconUrl()` resolves `new URL('../icons/<name>.png', import.meta.url)`. Vite **cannot** inline
@@ -104,6 +121,27 @@ than making the box elastic.
 The date is **centred** in that box. Left-aligning it parks the whole of the slack on one side, and
 the resulting lopsided gap before the next button was rejected on sight. Keep the two gaps equal:
 `--sheet-date-w` is padded by 10px at both ends for exactly that reason.
+
+### `_pushSwap` takes a TARGET, and which one you pass is the message
+
+The same push animates a day change and a series toggle, but they move different things:
+
+- day change → `.sheet-body`, the date included, because the date is what changed;
+- series toggle → `.sheet-content`, everything *below* the date, because it has not.
+
+Sliding the date on a toggle was a bug: the animation announced a new day when only the chart had
+changed. The clone is absolutely positioned, so `_pushSwap` sets its `top` from the original's
+`offsetTop` — it is not always at the top of its parent.
+
+### The day card is a fixed height with almost nothing spare
+
+354px, `overflow: hidden`, and the content came to 328 in a 330 stage — **2px**. Anything added to
+the vertical rhythm has to be taken from somewhere else or it is clipped. When the glyph row needed
+clearance from the plot, 5px came out of its top margin and only the remainder was spent on height.
+Measure before adding: the clip happens at the padding box, so there is a little more room than the
+stage suggests, but not much.
+
+`.now-line` derives its reach from `.sheet-glyphs`' bottom margin. Change one, change the other.
 
 ### A glyph and a chance in one cell must come from one forecast
 
@@ -255,6 +293,24 @@ copy to keep in sync.
 re-fetch a dynamically `import()`ed module; the browser keeps running the old bundle even though
 fetching the same URL returns the new bytes. The same applies to the background JPEGs — they carry
 their own `?v=` in the CSS URL.
+
+**Bumping it is not sufficient on its own.** Home Assistant's frontend caches the Lovelace
+*resource list*, so after changing the resource URL the page can go on requesting the OLD `?v=`
+indefinitely; an ordinary navigation will not pick up the new one. It takes a reload with the cache
+ignored.
+
+This produced two **falsely passing tests** in one session: the assertion ran against the previous
+bundle, found the state it expected because the old code had left it there, and reported success.
+So when driving a browser to verify a change, **assert the loaded bundle URL first**:
+
+```js
+const url = [...document.querySelectorAll('script,link')]
+  .map(x => x.src || x.href).filter(u => u && u.includes('fruity-weather-card'))[0];
+if (!url.includes(EXPECTED_VERSION)) return { ABORT: 'stale bundle', url };
+```
+
+And prefer assertions that require a value to *change*. "Hover is never null" passed against a
+stale value that simply never updated; "hover takes 8 distinct values while sweeping" did not.
 
 ### Pushing
 
