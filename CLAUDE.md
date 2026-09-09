@@ -204,16 +204,22 @@ plot (`preserveAspectRatio="none"`), so a plain dasharray is squashed horizontal
 grow each dash by half the stroke width at both ends, so the numbers are stated in pre-cap
 geometry.
 
-### `_nightAt` is only correct inside the current sun window
+### `_nightAt` reads the FORECAST's sun times, not `sun.sun`
 
-`sun.sun` carries the **next** rising and setting and nothing else, so `_nightAt` can only classify
-times that fall in the one window between them. Measured 2026-09-08 at 11:11 local: today 03:00
-returns *day*, and so do Wednesday 21:00 and Friday 03:00. Every hour of today before sunrise, and
-most of days 2–10, therefore get the wrong day/night artwork in the hourly strip and the day card.
+`sun.sun` carries the **next** rising and setting and nothing else — a single window — so it can
+only classify times up to tomorrow's sunrise and assumes daylight forever after. Measured
+2026-09-08: Thursday 21:00 and Friday 03:00 both returned *day*, so every night hour from tomorrow
+evening onward wore daytime artwork in the strip and the day card.
 
-Fixing it needs a real solar-position calculation for an arbitrary date (or, more cheaply,
-approximating each day from today's sunrise/sunset with a per-day drift). Do not "fix" it by
-reading `sun.sun` harder — the data is not there.
+Fixed in v3.0.3 by taking `sunrise,sunset` from the Open-Meteo **daily** block, which the card was
+already requesting for `precipitation_probability_max` — the same call, no extra cost, exact values
+for all ten days. `daySun` in `hourly-source.ts` holds them, keyed by local date.
+
+`sun.sun` is still the fallback for a day the forecast does not cover and for the moments before it
+loads, so the old single-window behaviour is still in there — just no longer the normal path. Do
+not try to widen it; the data is not in that entity.
+
+Polar days with no sunrise or sunset are simply absent from `daySun`, and fall back.
 
 ### Bubble pop-ups cannot pass CSS variables to a hosted card
 
@@ -258,6 +264,17 @@ shape between the daily low and high. That invents data and presents it as forec
 `_autoPlay()` exists because the toggle would PAUSE a map that is already running. Expanding also
 has to cope with the grid arriving *after* the open, so `_ensureGrid` starts playback too if the
 tile is already expanded. Both paths respect `prefers-reduced-motion`.
+
+### The Python cache and the card must request the SAME fields
+
+`HOURLY_VARS` / `DAILY_VARS` exist in **both** `src/hourly-source.ts` and
+`pyscript/fruity_weather.py`, and the card parses the pyscript file with the same code it uses for
+the API response. Add a field to one and not the other and there is no error — the field is simply
+missing for anyone running the shared cache, which is the harder case to notice because it only
+affects installs that have pyscript set up.
+
+After changing either, run `pyscript.reload` then `pyscript.fruity_weather_sync` and check
+`precip-hourly.json` actually gained the field before testing the card.
 
 ### Day/night comes from the sun, never the condition string
 

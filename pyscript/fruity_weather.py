@@ -76,7 +76,7 @@ TIMEOUT = 60
 # the API response, so a mismatch shows up as missing data rather than an error.
 HOURLY_OUT_PATH = "/config/www/fruity-weather-card/precip-hourly.json"
 HOURLY_VARS = "temperature_2m,weather_code,precipitation_probability,precipitation"
-DAILY_VARS = "precipitation_probability_max"
+DAILY_VARS = "precipitation_probability_max,sunrise,sunset"
 HOURLY_DAYS = 10
 
 
@@ -215,7 +215,7 @@ def _fetch_hourly(lat0, lon0):
         out_daily[key] = daily.get(key) or []
 
     return {
-        "v": 1,
+        "v": 2,
         "fetchedAt": int(time.time() * 1000),
         "hourly": out_hourly,
         "daily": out_daily,

@@ -1532,6 +1532,19 @@ export class FruityWeatherCard extends LitElement {
    * next event is the only boundary inside the 24h window we render.
    */
   private _nightAt(t: Date): boolean {
+    // That day's OWN sunrise and sunset, when the forecast has them. This is
+    // the only branch that is right beyond tomorrow morning.
+    const sun = this._hourlyDays?.daySun.get(localDateKey(t));
+    if (sun) {
+      const ms = t.getTime();
+      return ms < sun.rise || ms >= sun.set;
+    }
+
+    // Fallback for a day the forecast does not cover, or before it has loaded.
+    // `sun.sun` publishes only the NEXT rising and setting — a single window —
+    // so this is correct until tomorrow's sunrise and then assumes daylight
+    // forever after. That is why the branch above exists: it left every night
+    // hour from tomorrow evening onward wearing daytime artwork.
     const { rising, setting } = this._sunTimes();
     if (!rising || !setting) return this._isNight;
     if (rising < setting) {

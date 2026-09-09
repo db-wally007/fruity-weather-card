@@ -54,10 +54,22 @@ export interface HourlyDays {
    * provider's own daily aggregate rather than recomputed from the hours.
    */
   dayProb: Map<string, number>;
+  /**
+   * Sunrise and sunset per local date, as epoch ms.
+   *
+   * Needed because `sun.sun` carries only the NEXT rising and setting — one
+   * window — so anything past tomorrow morning cannot be classified from it and
+   * every night hour on days 2-10 was drawn with daytime artwork. These come
+   * from the same request as everything else here, so they cost nothing.
+   *
+   * A day with no sunrise or sunset at all (polar summer or winter) is simply
+   * absent from this map, and the caller falls back.
+   */
+  daySun: Map<string, { rise: number; set: number }>;
 }
 
 /** Bumped from v1: HourPoint gained precipitation and the payload gained dayProb. */
-const CACHE_KEY = 'fruity-weather-card:hourly-10d:v2';
+const CACHE_KEY = 'fruity-weather-card:hourly-10d:v3';
 
 /**
  * Optional shared cache written by `pyscript/fruity_weather.py`, same
@@ -73,7 +85,7 @@ const LOCAL_HOURLY_URL = '/local/fruity-weather-card/precip-hourly.json';
  * as the API response, so a mismatch shows up as missing data rather than an error.
  */
 export const HOURLY_VARS = 'temperature_2m,weather_code,precipitation_probability,precipitation';
-export const DAILY_VARS = 'precipitation_probability_max';
+export const DAILY_VARS = 'precipitation_probability_max,sunrise,sunset';
 /** The provider updates hourly; refetching more often just spends quota. */
 export const HOURLY_TTL_MS = 60 * 60 * 1000;
 
@@ -106,12 +118,14 @@ function readCache(): HourlyDays | undefined {
       fetchedAt: number;
       days: Record<string, HourPoint[]>;
       dayProb?: Record<string, number>;
+      daySun?: Record<string, { rise: number; set: number }>;
     };
     if (!c?.fetchedAt || Date.now() - c.fetchedAt > HOURLY_TTL_MS) return undefined;
     return {
       fetchedAt: c.fetchedAt,
       days: new Map(Object.entries(c.days)),
       dayProb: new Map(Object.entries(c.dayProb ?? {})),
+      daySun: new Map(Object.entries(c.daySun ?? {})),
     };
   } catch {
     return undefined;
@@ -126,6 +140,7 @@ function writeCache(v: HourlyDays): void {
         fetchedAt: v.fetchedAt,
         days: Object.fromEntries(v.days),
         dayProb: Object.fromEntries(v.dayProb),
+        daySun: Object.fromEntries(v.daySun),
       }),
     );
   } catch {
@@ -140,6 +155,41 @@ interface RawHourly {
   weather_code: (number | null)[];
   precipitation_probability: (number | null)[];
   precipitation: (number | null)[];
+}
+
+/** The daily block, as both the API and the pyscript file supply it. */
+interface RawDaily {
+  time?: string[];
+  precipitation_probability_max?: (number | null)[];
+  sunrise?: (string | null)[];
+  sunset?: (string | null)[];
+}
+
+/**
+ * Split the daily block into the two maps the card wants, both keyed by local
+ * date. `timezone=auto` means the timestamps are already local and naive, so
+ * appending seconds and letting Date parse them locally is exact — no zone
+ * arithmetic, and nothing to get wrong across a DST boundary.
+ */
+function readDaily(d: RawDaily): {
+  dayProb: Map<string, number>;
+  daySun: Map<string, { rise: number; set: number }>;
+} {
+  const dayProb = new Map<string, number>();
+  const daySun = new Map<string, { rise: number; set: number }>();
+  const t = d.time ?? [];
+  const p = d.precipitation_probability_max ?? [];
+  const up = d.sunrise ?? [];
+  const down = d.sunset ?? [];
+  for (let i = 0; i < t.length; i++) {
+    dayProb.set(t[i], p[i] ?? 0);
+    // Absent on a day with no sunrise or sunset at all — polar summer and
+    // winter. Such a day is left out and the caller falls back.
+    const rise = up[i] ? new Date(`${up[i]}:00`).getTime() : NaN;
+    const set = down[i] ? new Date(`${down[i]}:00`).getTime() : NaN;
+    if (Number.isFinite(rise) && Number.isFinite(set)) daySun.set(t[i], { rise, set });
+  }
+  return { dayProb, daySun };
 }
 
 function groupByDay(h: RawHourly): Map<string, HourPoint[]> {
@@ -179,18 +229,15 @@ async function fetchLocalHourly(): Promise<HourlyDays | undefined> {
     const c = await res.json() as {
       fetchedAt?: number;
       hourly?: RawHourly;
-      daily?: { time?: string[]; precipitation_probability_max?: (number | null)[] };
+      daily?: RawDaily;
     };
     if (!c?.fetchedAt || !c.hourly?.time?.length) return undefined;
     // Generous next to the in-browser TTL: the writer refreshes on its own
     // schedule and a file a little past the hour still beats a network round
     // trip. Well beyond that it is better to go and ask.
     if (Date.now() - c.fetchedAt > HOURLY_TTL_MS * 3) return undefined;
-    const dayProb = new Map<string, number>();
-    const dt = c.daily?.time ?? [];
-    const dp = c.daily?.precipitation_probability_max ?? [];
-    for (let i = 0; i < dt.length; i++) dayProb.set(dt[i], dp[i] ?? 0);
-    return { fetchedAt: c.fetchedAt, days: groupByDay(c.hourly), dayProb };
+    const { dayProb, daySun } = readDaily(c.daily ?? {});
+    return { fetchedAt: c.fetchedAt, days: groupByDay(c.hourly), dayProb, daySun };
   } catch {
     return undefined;
   }
@@ -251,7 +298,7 @@ async function fetchHourlyDaysUncached(
   if (!res.ok) throw new Error(`open-meteo hourly ${res.status}`);
   const body = await res.json() as {
     hourly?: Partial<RawHourly>;
-    daily?: { time?: string[]; precipitation_probability_max?: (number | null)[] };
+    daily?: RawDaily;
   };
 
   const times = body.hourly?.time ?? [];
@@ -267,12 +314,9 @@ async function fetchHourlyDaysUncached(
     precipitation: col(body.hourly?.precipitation),
   });
 
-  const dayProb = new Map<string, number>();
-  const dt = body.daily?.time ?? [];
-  const dp = body.daily?.precipitation_probability_max ?? [];
-  for (let i = 0; i < dt.length; i++) dayProb.set(dt[i], dp[i] ?? 0);
+  const { dayProb, daySun } = readDaily(body.daily ?? {});
 
-  const out = { fetchedAt: Date.now(), days, dayProb };
+  const out = { fetchedAt: Date.now(), days, dayProb, daySun };
   writeCache(out);
   return out;
 }

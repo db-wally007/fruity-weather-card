@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.0.3] - 2026-09-09
+
+### Fixed
+
+- **Night hours on later days were drawn with daytime artwork.** The card picks a sun or a moon
+  glyph per hour, but it only knew tonight's sunset and tomorrow's sunrise — `sun.sun` publishes
+  nothing further — so from tomorrow evening onward it assumed daylight. Midnight and 3am on a day
+  four out showed a sun in the sky. It now reads each day's own sunrise and sunset from the
+  Open-Meteo daily block, which the card was already requesting for the precipitation figures: the
+  same call, no extra cost, exact values for all ten days. `sun.sun` remains the fallback for days
+  the forecast does not cover.
+
 ## [3.0.2] - 2026-09-09
 
 ### Added
