@@ -263,7 +263,7 @@ G.elementStyles = [], G.shadowRootOptions = { mode: "open" }, G[ht("elementPrope
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const Bt = globalThis, jt = (e) => e, bt = Bt.trustedTypes, Qt = bt ? bt.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, Zt = "$lit$", j = `lit$${Math.random().toFixed(9).slice(2)}$`, te = "?" + j, Ge = `<${te}>`, F = document, dt = () => F.createComment(""), ct = (e) => e === null || typeof e != "object" && typeof e != "function", $t = Array.isArray, Je = (e) => $t(e) || typeof e?.[Symbol.iterator] == "function", St = `[ 	
+const Bt = globalThis, jt = (e) => e, bt = Bt.trustedTypes, Qt = bt ? bt.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, Zt = "$lit$", j = `lit$${Math.random().toFixed(9).slice(2)}$`, te = "?" + j, Ge = `<${te}>`, F = document, ct = () => F.createComment(""), dt = (e) => e === null || typeof e != "object" && typeof e != "function", $t = Array.isArray, Je = (e) => $t(e) || typeof e?.[Symbol.iterator] == "function", St = `[ 	
 \f\r]`, at = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Lt = /-->/g, Nt = />/g, Q = RegExp(`>|${St}(?:([^\\s"'>=/]+)(${St}*=${St}*(?:[^ 	
 \f\r"'\`<>=]|("|')|))|$)`, "g"), Ft = /'/g, Xt = /"/g, ee = /^(?:script|style|textarea|title)$/i, ie = (e) => (t, ...s) => ({ _$litType$: e, strings: t, values: s }), y = ie(1), E = ie(2), q = Symbol.for("lit-noChange"), A = Symbol.for("lit-nothing"), Vt = /* @__PURE__ */ new WeakMap(), N = F.createTreeWalker(F, 129);
 function se(e, t) {
@@ -275,10 +275,10 @@ const qe = (e, t) => {
   let a, o = t === 2 ? "<svg>" : t === 3 ? "<math>" : "", r = at;
   for (let n = 0; n < s; n++) {
     const l = e[n];
-    let p, d, c = -1, h = 0;
-    for (; h < l.length && (r.lastIndex = h, d = r.exec(l), d !== null); ) h = r.lastIndex, r === at ? d[1] === "!--" ? r = Lt : d[1] !== void 0 ? r = Nt : d[2] !== void 0 ? (ee.test(d[2]) && (a = RegExp("</" + d[2], "g")), r = Q) : d[3] !== void 0 && (r = Q) : r === Q ? d[0] === ">" ? (r = a ?? at, c = -1) : d[1] === void 0 ? c = -2 : (c = r.lastIndex - d[2].length, p = d[1], r = d[3] === void 0 ? Q : d[3] === '"' ? Xt : Ft) : r === Xt || r === Ft ? r = Q : r === Lt || r === Nt ? r = at : (r = Q, a = void 0);
+    let p, c, d = -1, h = 0;
+    for (; h < l.length && (r.lastIndex = h, c = r.exec(l), c !== null); ) h = r.lastIndex, r === at ? c[1] === "!--" ? r = Lt : c[1] !== void 0 ? r = Nt : c[2] !== void 0 ? (ee.test(c[2]) && (a = RegExp("</" + c[2], "g")), r = Q) : c[3] !== void 0 && (r = Q) : r === Q ? c[0] === ">" ? (r = a ?? at, d = -1) : c[1] === void 0 ? d = -2 : (d = r.lastIndex - c[2].length, p = c[1], r = c[3] === void 0 ? Q : c[3] === '"' ? Xt : Ft) : r === Xt || r === Ft ? r = Q : r === Lt || r === Nt ? r = at : (r = Q, a = void 0);
     const u = r === Q && e[n + 1].startsWith("/>") ? " " : "";
-    o += r === at ? l + Ge : c >= 0 ? (i.push(p), l.slice(0, c) + Zt + l.slice(c) + j + u) : l + j + (c === -2 ? n : u);
+    o += r === at ? l + Ge : d >= 0 ? (i.push(p), l.slice(0, d) + Zt + l.slice(d) + j + u) : l + j + (d === -2 ? n : u);
   }
   return [se(e, o + (e[s] || "<?>") + (t === 2 ? "</svg>" : t === 3 ? "</math>" : "")), i];
 };
@@ -287,29 +287,29 @@ class pt {
     let a;
     this.parts = [];
     let o = 0, r = 0;
-    const n = t.length - 1, l = this.parts, [p, d] = qe(t, s);
+    const n = t.length - 1, l = this.parts, [p, c] = qe(t, s);
     if (this.el = pt.createElement(p, i), N.currentNode = this.el.content, s === 2 || s === 3) {
-      const c = this.el.content.firstChild;
-      c.replaceWith(...c.childNodes);
+      const d = this.el.content.firstChild;
+      d.replaceWith(...d.childNodes);
     }
     for (; (a = N.nextNode()) !== null && l.length < n; ) {
       if (a.nodeType === 1) {
-        if (a.hasAttributes()) for (const c of a.getAttributeNames()) if (c.endsWith(Zt)) {
-          const h = d[r++], u = a.getAttribute(c).split(j), g = /([.?@])?(.*)/.exec(h);
-          l.push({ type: 1, index: o, name: g[2], strings: u, ctor: g[1] === "." ? We : g[1] === "?" ? Ze : g[1] === "@" ? ti : kt }), a.removeAttribute(c);
-        } else c.startsWith(j) && (l.push({ type: 6, index: o }), a.removeAttribute(c));
+        if (a.hasAttributes()) for (const d of a.getAttributeNames()) if (d.endsWith(Zt)) {
+          const h = c[r++], u = a.getAttribute(d).split(j), g = /([.?@])?(.*)/.exec(h);
+          l.push({ type: 1, index: o, name: g[2], strings: u, ctor: g[1] === "." ? We : g[1] === "?" ? Ze : g[1] === "@" ? ti : kt }), a.removeAttribute(d);
+        } else d.startsWith(j) && (l.push({ type: 6, index: o }), a.removeAttribute(d));
         if (ee.test(a.tagName)) {
-          const c = a.textContent.split(j), h = c.length - 1;
+          const d = a.textContent.split(j), h = d.length - 1;
           if (h > 0) {
             a.textContent = bt ? bt.emptyScript : "";
-            for (let u = 0; u < h; u++) a.append(c[u], dt()), N.nextNode(), l.push({ type: 2, index: ++o });
-            a.append(c[h], dt());
+            for (let u = 0; u < h; u++) a.append(d[u], ct()), N.nextNode(), l.push({ type: 2, index: ++o });
+            a.append(d[h], ct());
           }
         }
       } else if (a.nodeType === 8) if (a.data === te) l.push({ type: 2, index: o });
       else {
-        let c = -1;
-        for (; (c = a.data.indexOf(j, c + 1)) !== -1; ) l.push({ type: 7, index: o }), c += j.length - 1;
+        let d = -1;
+        for (; (d = a.data.indexOf(j, d + 1)) !== -1; ) l.push({ type: 7, index: o }), d += j.length - 1;
       }
       o++;
     }
@@ -322,7 +322,7 @@ class pt {
 function K(e, t, s = e, i) {
   if (t === q) return t;
   let a = i !== void 0 ? s._$Co?.[i] : s._$Cl;
-  const o = ct(t) ? void 0 : t._$litDirective$;
+  const o = dt(t) ? void 0 : t._$litDirective$;
   return a?.constructor !== o && (a?._$AO?.(!1), o === void 0 ? a = void 0 : (a = new o(e), a._$AT(e, s, i)), i !== void 0 ? (s._$Co ??= [])[i] = a : s._$Cl = a), a !== void 0 && (t = K(e, a._$AS(e, t.values), a, i)), t;
 }
 class Ke {
@@ -372,7 +372,7 @@ class ut {
     return this._$AB;
   }
   _$AI(t, s = this) {
-    t = K(this, t, s), ct(t) ? t === A || t == null || t === "" ? (this._$AH !== A && this._$AR(), this._$AH = A) : t !== this._$AH && t !== q && this._(t) : t._$litType$ !== void 0 ? this.$(t) : t.nodeType !== void 0 ? this.T(t) : Je(t) ? this.k(t) : this._(t);
+    t = K(this, t, s), dt(t) ? t === A || t == null || t === "" ? (this._$AH !== A && this._$AR(), this._$AH = A) : t !== this._$AH && t !== q && this._(t) : t._$litType$ !== void 0 ? this.$(t) : t.nodeType !== void 0 ? this.T(t) : Je(t) ? this.k(t) : this._(t);
   }
   O(t) {
     return this._$AA.parentNode.insertBefore(t, this._$AB);
@@ -381,7 +381,7 @@ class ut {
     this._$AH !== t && (this._$AR(), this._$AH = this.O(t));
   }
   _(t) {
-    this._$AH !== A && ct(this._$AH) ? this._$AA.nextSibling.data = t : this.T(F.createTextNode(t)), this._$AH = t;
+    this._$AH !== A && dt(this._$AH) ? this._$AA.nextSibling.data = t : this.T(F.createTextNode(t)), this._$AH = t;
   }
   $(t) {
     const { values: s, _$litType$: i } = t, a = typeof i == "number" ? this._$AC(t) : (i.el === void 0 && (i.el = pt.createElement(se(i.h, i.h[0]), this.options)), i);
@@ -399,7 +399,7 @@ class ut {
     $t(this._$AH) || (this._$AH = [], this._$AR());
     const s = this._$AH;
     let i, a = 0;
-    for (const o of t) a === s.length ? s.push(i = new ut(this.O(dt()), this.O(dt()), this, this.options)) : i = s[a], i._$AI(o), a++;
+    for (const o of t) a === s.length ? s.push(i = new ut(this.O(ct()), this.O(ct()), this, this.options)) : i = s[a], i._$AI(o), a++;
     a < s.length && (this._$AR(i && i._$AB.nextSibling, a), s.length = a);
   }
   _$AR(t = this._$AA.nextSibling, s) {
@@ -425,11 +425,11 @@ class kt {
   _$AI(t, s = this, i, a) {
     const o = this.strings;
     let r = !1;
-    if (o === void 0) t = K(this, t, s, 0), r = !ct(t) || t !== this._$AH && t !== q, r && (this._$AH = t);
+    if (o === void 0) t = K(this, t, s, 0), r = !dt(t) || t !== this._$AH && t !== q, r && (this._$AH = t);
     else {
       const n = t;
       let l, p;
-      for (t = o[0], l = 0; l < o.length - 1; l++) p = K(this, n[i + l], s, l), p === q && (p = this._$AH[l]), r ||= !ct(p) || p !== this._$AH[l], p === A ? t = A : t !== A && (t += (p ?? "") + o[l + 1]), this._$AH[l] = p;
+      for (t = o[0], l = 0; l < o.length - 1; l++) p = K(this, n[i + l], s, l), p === q && (p = this._$AH[l]), r ||= !dt(p) || p !== this._$AH[l], p === A ? t = A : t !== A && (t += (p ?? "") + o[l + 1]), this._$AH[l] = p;
     }
     r && !a && this.j(t);
   }
@@ -484,7 +484,7 @@ const si = (e, t, s) => {
   let a = i._$litPart$;
   if (a === void 0) {
     const o = s?.renderBefore ?? null;
-    i._$litPart$ = a = new ut(t.insertBefore(dt(), o), o, void 0, s ?? {});
+    i._$litPart$ = a = new ut(t.insertBefore(ct(), o), o, void 0, s ?? {});
   }
   return a._$AI(e), a;
 };
@@ -583,7 +583,7 @@ const li = "/local/fruity-weather-card/precip-grid.json";
 function oe(e) {
   return e.nx === O && e.ny === B && Math.abs((e.dlon ?? 0) - W) < 1e-6 && Math.abs((e.dlat ?? 0) - Z) < 1e-6;
 }
-async function di(e, t) {
+async function ci(e, t) {
   try {
     const s = await fetch(`${li}?t=${Math.floor(Date.now() / 6e4)}`);
     if (!s.ok) return;
@@ -615,8 +615,8 @@ async function di(e, t) {
     return;
   }
 }
-async function ci(e, t) {
-  const s = await di(e, t);
+async function di(e, t) {
+  const s = await ci(e, t);
   if (s) return s;
   const i = [], a = [];
   for (let w = 0; w < B; w++)
@@ -629,7 +629,7 @@ async function ci(e, t) {
   const l = await n.json(), p = Array.isArray(l) ? l : [l];
   if (p.length !== O * B)
     throw new Error(`open-meteo returned ${p.length} of ${O * B} points`);
-  const d = (w) => (/* @__PURE__ */ new Date(`${w}Z`)).getTime(), c = p[0].hourly.time.map(d), h = p[0].minutely_15.time.map(d), u = (w, f) => Array.from({ length: w }, (v, x) => {
+  const c = (w) => (/* @__PURE__ */ new Date(`${w}Z`)).getTime(), d = p[0].hourly.time.map(c), h = p[0].minutely_15.time.map(c), u = (w, f) => Array.from({ length: w }, (v, x) => {
     const _ = new Float32Array(O * B);
     for (let C = 0; C < p.length; C++) _[C] = f(p[C], x) || 0;
     return _;
@@ -638,8 +638,8 @@ async function ci(e, t) {
     lat0: e,
     lon0: t,
     hourly: {
-      times: c,
-      frames: u(c.length, (w, f) => w.hourly.precipitation[f])
+      times: d,
+      frames: u(d.length, (w, f) => w.hourly.precipitation[f])
     },
     quarter: {
       times: h,
@@ -699,10 +699,10 @@ function gi(e, t, s, i, a) {
 }
 const fi = "Esri, HERE, Garmin, © OpenStreetMap contributors";
 function mi(e, t = "dark") {
-  const s = "https://services.arcgisonline.com/ArcGIS/rest/services/Canvas", i = t === "dark" ? "Dark" : "Light", a = e.z, o = 256, r = 2 ** a, n = [], l = Math.floor(e.originX / o), p = Math.floor(e.originY / o), d = Math.floor((e.originX + e.width) / o), c = Math.floor((e.originY + e.height) / o);
-  for (let h = p; h <= c; h++)
+  const s = "https://services.arcgisonline.com/ArcGIS/rest/services/Canvas", i = t === "dark" ? "Dark" : "Light", a = e.z, o = 256, r = 2 ** a, n = [], l = Math.floor(e.originX / o), p = Math.floor(e.originY / o), c = Math.floor((e.originX + e.width) / o), d = Math.floor((e.originY + e.height) / o);
+  for (let h = p; h <= d; h++)
     if (!(h < 0 || h >= r))
-      for (let u = l; u <= d; u++) {
+      for (let u = l; u <= c; u++) {
         const g = (u % r + r) % r;
         n.push({
           key: `${i}/${a}/${g}/${h}`,
@@ -741,30 +741,30 @@ function wi(e, t, s, i) {
   l.width = O, l.height = B;
   const p = l.getContext("2d");
   if (!p) return;
-  const d = p.createImageData(O, B);
+  const c = p.createImageData(O, B);
   for (let x = 0; x < B; x++)
     for (let _ = 0; _ < O; _++) {
       const C = (B - 1 - x) * O + _;
-      Ai(s[C], d.data, (x * O + _) * 4);
+      Ai(s[C], c.data, (x * O + _) * 4);
     }
-  p.putImageData(d, 0, 0);
-  const c = document.createElement("canvas");
-  c.width = O * 6, c.height = B * 6;
-  const h = c.getContext("2d");
+  p.putImageData(c, 0, 0);
+  const d = document.createElement("canvas");
+  d.width = O * 6, d.height = B * 6;
+  const h = d.getContext("2d");
   if (!h) return;
-  h.imageSmoothingEnabled = !0, h.imageSmoothingQuality = "high", h.drawImage(l, 0, 0, c.width, c.height);
+  h.imageSmoothingEnabled = !0, h.imageSmoothingQuality = "high", h.drawImage(l, 0, 0, d.width, d.height);
   const u = hi(t.lat0, t.lon0), g = (vt(u.west, i.z) * 256 - i.originX) * a, w = (vt(u.east, i.z) * 256 - i.originX) * a, f = (xt(u.north, i.z) * 256 - i.originY) * a, v = (xt(u.south, i.z) * 256 - i.originY) * a;
-  n.imageSmoothingEnabled = !0, n.imageSmoothingQuality = "high", n.drawImage(c, g, f, w - g, v - f);
+  n.imageSmoothingEnabled = !0, n.imageSmoothingQuality = "high", n.drawImage(d, g, f, w - g, v - f);
 }
 function bi(e, t, s, i) {
   for (let a = 0; a < e.length; a++) i[a] = e[a] + (t[a] - e[a]) * s;
   return i;
 }
-const he = "fruity-weather-card:hourly-10d:v4", vi = "/local/fruity-weather-card/precip-hourly.json", xi = "temperature_2m,weather_code,precipitation_probability,precipitation", _i = "precipitation_probability_max,sunrise,sunset,temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum", ki = "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m", Dt = 60 * 60 * 1e3;
+const he = "fruity-weather-card:hourly-10d:v4", vi = "/local/fruity-weather-card/precip-hourly.json", xi = "temperature_2m,weather_code,precipitation_probability,precipitation", _i = "precipitation_probability_max,sunrise,sunset,temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum", ki = "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m", Dt = 60 * 60 * 1e3, Si = 5 * 60 * 1e3;
 function Rt(e) {
   return e === 0 ? "sunny" : e === 1 || e === 2 ? "partlycloudy" : e === 3 ? "cloudy" : e === 45 || e === 48 ? "fog" : e >= 51 && e <= 57 ? "rainy" : e >= 61 && e <= 65 ? e >= 65 ? "pouring" : "rainy" : e === 66 || e === 67 ? "snowy-rainy" : e >= 71 && e <= 77 ? "snowy" : e >= 80 && e <= 82 ? e === 82 ? "pouring" : "rainy" : e === 85 || e === 86 ? "snowy" : e === 95 ? "lightning" : e === 96 || e === 99 ? "lightning-rainy" : "cloudy";
 }
-function Si() {
+function Ci() {
   try {
     const e = localStorage.getItem(he);
     if (!e) return;
@@ -810,21 +810,21 @@ function le(e) {
     condition: Rt(e.weather_code ?? 3)
   };
 }
-function de(e) {
-  const t = /* @__PURE__ */ new Map(), s = /* @__PURE__ */ new Map(), i = /* @__PURE__ */ new Map(), a = e.time ?? [], o = e.precipitation_probability_max ?? [], r = e.sunrise ?? [], n = e.sunset ?? [], l = e.temperature_2m_max ?? [], p = e.temperature_2m_min ?? [], d = e.weather_code ?? [], c = e.precipitation_sum ?? [];
+function ce(e) {
+  const t = /* @__PURE__ */ new Map(), s = /* @__PURE__ */ new Map(), i = /* @__PURE__ */ new Map(), a = e.time ?? [], o = e.precipitation_probability_max ?? [], r = e.sunrise ?? [], n = e.sunset ?? [], l = e.temperature_2m_max ?? [], p = e.temperature_2m_min ?? [], c = e.weather_code ?? [], d = e.precipitation_sum ?? [];
   for (let h = 0; h < a.length; h++) {
     t.set(a[h], o[h] ?? 0);
     const u = r[h] ? (/* @__PURE__ */ new Date(`${r[h]}:00`)).getTime() : NaN, g = n[h] ? (/* @__PURE__ */ new Date(`${n[h]}:00`)).getTime() : NaN;
     Number.isFinite(u) && Number.isFinite(g) && s.set(a[h], { rise: u, set: g }), i.set(a[h], {
       hi: l[h] ?? void 0,
       lo: p[h] ?? void 0,
-      condition: Rt(d[h] ?? 3),
-      precipMm: c[h] ?? void 0
+      condition: Rt(c[h] ?? 3),
+      precipMm: d[h] ?? void 0
     });
   }
   return { dayProb: t, daySun: s, dayStat: i };
 }
-function ce(e) {
+function de(e) {
   const t = /* @__PURE__ */ new Map();
   for (let s = 0; s < e.time.length; s++) {
     const i = e.time[s], a = e.temperature_2m[s];
@@ -841,55 +841,56 @@ function ce(e) {
   }
   return t;
 }
-async function Ci() {
+async function Oi() {
   try {
     const e = await fetch(`${vi}?t=${Math.floor(Date.now() / 6e4)}`);
     if (!e.ok) return;
     const t = await e.json();
     if (!t?.fetchedAt || !t.hourly?.time?.length || Date.now() - t.fetchedAt > Dt * 3) return;
-    const { dayProb: s, daySun: i, dayStat: a } = de(t.daily ?? {});
+    const { dayProb: s, daySun: i, dayStat: a } = ce(t.daily ?? {});
     return {
       fetchedAt: t.fetchedAt,
-      days: ce(t.hourly),
+      days: de(t.hourly),
       dayProb: s,
       daySun: i,
       dayStat: a,
-      current: le(t.current)
+      current: le(t.current),
+      fromFile: !0
     };
   } catch {
     return;
   }
 }
-function Oi(e, t, s = !1) {
+function Mi(e, t, s = !1) {
   if (!s && ot) return ot;
-  const i = Mi(e, t, s);
+  const i = Bi(e, t, s);
   return s || (ot = i, i.finally(() => {
     ot === i && (ot = void 0);
   })), i;
 }
 let ot;
-async function Mi(e, t, s = !1) {
-  if (!s) {
-    const w = Si();
-    if (w) return w;
-  }
-  const i = await Ci();
+async function Bi(e, t, s = !1) {
+  const i = await Oi();
   if (i)
     return Yt(i), i;
+  if (!s) {
+    const w = Ci();
+    if (w) return w;
+  }
   const a = `https://api.open-meteo.com/v1/forecast?latitude=${e.toFixed(4)}&longitude=${t.toFixed(4)}&hourly=${xi}&daily=${_i}&current=${ki}&forecast_days=10&timezone=auto`, o = await fetch(a);
   if (!o.ok) throw new Error(`open-meteo hourly ${o.status}`);
   const r = await o.json(), n = r.hourly?.time ?? [];
   if (!n.length) throw new Error("open-meteo hourly returned no points");
-  const l = n.length, p = (w) => w ?? new Array(l).fill(null), d = ce({
+  const l = n.length, p = (w) => w ?? new Array(l).fill(null), c = de({
     time: n,
     temperature_2m: p(r.hourly?.temperature_2m),
     weather_code: p(r.hourly?.weather_code),
     precipitation_probability: p(r.hourly?.precipitation_probability),
     precipitation: p(r.hourly?.precipitation)
-  }), { dayProb: c, daySun: h, dayStat: u } = de(r.daily ?? {}), g = {
+  }), { dayProb: d, daySun: h, dayStat: u } = ce(r.daily ?? {}), g = {
     fetchedAt: Date.now(),
-    days: d,
-    dayProb: c,
+    days: c,
+    dayProb: d,
     daySun: h,
     dayStat: u,
     current: le(r.current)
@@ -900,12 +901,12 @@ function At(e) {
   const t = (s) => String(s).padStart(2, "0");
   return `${e.getFullYear()}-${t(e.getMonth() + 1)}-${t(e.getDate())}`;
 }
-var Bi = Object.defineProperty, $i = Object.getOwnPropertyDescriptor, M = (e, t, s, i) => {
-  for (var a = i > 1 ? void 0 : i ? $i(t, s) : t, o = e.length - 1, r; o >= 0; o--)
+var $i = Object.defineProperty, Ei = Object.getOwnPropertyDescriptor, M = (e, t, s, i) => {
+  for (var a = i > 1 ? void 0 : i ? Ei(t, s) : t, o = e.length - 1, r; o >= 0; o--)
     (r = e[o]) && (a = (i ? r(t, s, a) : r(a)) || a);
-  return i && a && Bi(t, s, a), a;
+  return i && a && $i(t, s, a), a;
 };
-const Ei = Wt(yi), Di = 20, Ri = /* @__PURE__ */ new Set([
+const Di = Wt(yi), Ri = 20, Ii = /* @__PURE__ */ new Set([
   "rainy",
   "pouring",
   "snowy",
@@ -913,7 +914,7 @@ const Ei = Wt(yi), Di = 20, Ri = /* @__PURE__ */ new Set([
   "hail",
   "lightning",
   "lightning-rainy"
-]), Ii = "/local/weather-bg", Ti = {
+]), Ti = "/local/weather-bg", Pi = {
   "clear-night": "night_clear",
   cloudy: "cloudy",
   fog: "fog",
@@ -934,14 +935,14 @@ const Ei = Wt(yi), Di = 20, Ri = /* @__PURE__ */ new Set([
   partlycloudy: "night_cloudy",
   cloudy: "night_cloudy",
   rainy: "night_drizzle"
-}, Pi = { sunrise: "sunrise", sunset: "sunset" }, Hi = [
+}, Hi = { sunrise: "sunrise", sunset: "sunset" }, Ui = [
   ["N", 48, 13, 0],
   ["E", 83, 48, 90],
   ["S", 48, 83, 180],
   ["W", 13, 48, 270]
 ];
 function rt(e, t) {
-  return e ? t && Gt[e] ? Gt[e] : Ti[e] ?? "not-available" : "not-available";
+  return e ? t && Gt[e] ? Gt[e] : Pi[e] ?? "not-available" : "not-available";
 }
 const Jt = {
   "clear-night": "Clear",
@@ -976,7 +977,7 @@ function qt(e) {
     const [i, a] = L[s], [o, r] = L[s + 1];
     if (e >= i && e <= o) {
       const n = (e - i) / (o - i);
-      return `rgb(${a.map((p, d) => Math.round(p + (r[d] - p) * n)).join(",")})`;
+      return `rgb(${a.map((p, c) => Math.round(p + (r[c] - p) * n)).join(",")})`;
     }
   }
   return "#ffffff";
@@ -1079,7 +1080,7 @@ let b = class extends lt {
     if (!(e === void 0 || t === void 0 || this._gridPending) && !(this._grid && Date.now() - this._grid.fetchedAt < ne) && !(Date.now() < this._gridRetryAt)) {
       this._gridPending = !0;
       try {
-        this._grid = await ci(e, t), this._gridBackoff = 0, this._gridRetryAt = 0, this._mapT = 0, this._mapFrame = 0, this._mapOpen && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches && (await this.updateComplete, this._autoPlay());
+        this._grid = await di(e, t), this._gridBackoff = 0, this._gridRetryAt = 0, this._mapT = 0, this._mapFrame = 0, this._mapOpen && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches && (await this.updateComplete, this._autoPlay());
       } catch (s) {
         this._gridBackoff = this._gridBackoff ? Math.min(this._gridBackoff * 2, 15 * 6e4) : 6e4, this._gridRetryAt = Date.now() + this._gridBackoff, console.warn(
           `fruity-weather-card: precipitation grid failed, retrying in ${this._gridBackoff / 1e3}s`,
@@ -1104,14 +1105,16 @@ let b = class extends lt {
    */
   async _ensureHourly(e = !1) {
     const t = this.hass?.config?.latitude, s = this.hass?.config?.longitude;
-    if (!(t === void 0 || s === void 0 || this._hourlyPending) && !(!e && this._hourlyDays && Date.now() - this._hourlyDays.fetchedAt < Dt) && !(!e && Date.now() < this._hourlyRetryAt)) {
+    if (t === void 0 || s === void 0 || this._hourlyPending) return;
+    const i = this._hourlyDays?.fromFile ? Si : Dt;
+    if (!(!e && this._hourlyDays && Date.now() - this._hourlyDays.fetchedAt < i) && !(!e && Date.now() < this._hourlyRetryAt)) {
       this._hourlyPending = !0, this._hourlyError = !1;
       try {
-        this._hourlyDays = await Oi(t, s, e), this._hourlyBackoff = 0, this._hourlyRetryAt = 0, this._config?.forecast_source === "open-meteo" && this._applyOpenMeteoForecast();
-      } catch (i) {
+        this._hourlyDays = await Mi(t, s, e), this._hourlyBackoff = 0, this._hourlyRetryAt = 0, this._config?.forecast_source === "open-meteo" && this._applyOpenMeteoForecast();
+      } catch (a) {
         this._hourlyError = !0, this._wantsOpenMeteo && !this._hourlyDays && (this._entityDaily.length && (this._daily = this._entityDaily), this._entityHourly.length && (this._hourly = this._entityHourly)), this._hourlyBackoff = this._hourlyBackoff ? Math.min(this._hourlyBackoff * 2, 15 * 6e4) : 6e4, this._hourlyRetryAt = Date.now() + this._hourlyBackoff, console.warn(
           `fruity-weather-card: hourly forecast failed, retrying in ${this._hourlyBackoff / 1e3}s`,
-          i
+          a
         );
       } finally {
         this._hourlyPending = !1;
@@ -1181,7 +1184,7 @@ let b = class extends lt {
    */
   _printableProb(e, t) {
     if (t !== void 0)
-      return t >= Di || e && Ri.has(e) ? t : void 0;
+      return t >= Ri || e && Ii.has(e) ? t : void 0;
   }
   /**
    * The Open-Meteo hour matching `t`, for the strip.
@@ -1326,9 +1329,9 @@ let b = class extends lt {
     if (!o || !this._grid) return;
     const r = this._mapSeries, n = r.frames.length;
     if (!n) return;
-    const l = Math.min(Math.max(this._mapT, 0), n - 1e-6), p = Math.floor(l), d = Math.min(p + 1, n - 1);
-    let c = r.frames[p];
-    d !== p && ((!this._mapScratch || this._mapScratch.length !== c.length) && (this._mapScratch = new Float32Array(c.length)), c = bi(r.frames[p], r.frames[d], l - p, this._mapScratch)), wi(o, this._grid, c, i);
+    const l = Math.min(Math.max(this._mapT, 0), n - 1e-6), p = Math.floor(l), c = Math.min(p + 1, n - 1);
+    let d = r.frames[p];
+    c !== p && ((!this._mapScratch || this._mapScratch.length !== d.length) && (this._mapScratch = new Float32Array(d.length)), d = bi(r.frames[p], r.frames[c], l - p, this._mapScratch)), wi(o, this._grid, d, i);
   }
   /**
    * Opens/closes the map, animating the tiles it displaces.
@@ -1367,8 +1370,8 @@ let b = class extends lt {
     if (e(), await this.updateComplete, b._reducedMotion()) return;
     const o = i.filter((r) => r.isConnected);
     for (const r of o) {
-      const n = a.get(r), l = r.getBoundingClientRect(), p = n.left - l.left, d = n.top - l.top;
-      !p && !d || (r.style.transition = "none", r.style.transform = `translate(${p}px, ${d}px)`);
+      const n = a.get(r), l = r.getBoundingClientRect(), p = n.left - l.left, c = n.top - l.top;
+      !p && !c || (r.style.transition = "none", r.style.transform = `translate(${p}px, ${c}px)`);
     }
     requestAnimationFrame(() => requestAnimationFrame(() => {
       for (const r of o)
@@ -1646,11 +1649,11 @@ let b = class extends lt {
   _sunArc() {
     const { rising: e, setting: t } = this._sunTimes();
     if (!e || !t) return;
-    const s = 864e5, i = Date.now(), a = 0.2, o = 0.8, r = 26, n = 17, l = 11, p = 100, d = (f) => f >= a && f <= o ? Math.sin(Math.PI * (f - a) / (o - a)) : f < a ? -Math.sin(Math.PI * ((a - f) / (2 * a))) : -Math.sin(Math.PI * ((f - o) / (2 * (1 - o)))), c = (f) => r - f * (f >= 0 ? n : l), h = (f, v, x) => {
+    const s = 864e5, i = Date.now(), a = 0.2, o = 0.8, r = 26, n = 17, l = 11, p = 100, c = (f) => f >= a && f <= o ? Math.sin(Math.PI * (f - a) / (o - a)) : f < a ? -Math.sin(Math.PI * ((a - f) / (2 * a))) : -Math.sin(Math.PI * ((f - o) / (2 * (1 - o)))), d = (f) => r - f * (f >= 0 ? n : l), h = (f, v, x) => {
       const _ = [];
       for (let C = 0; C <= x; C++) {
         const U = f + (v - f) * C / x;
-        _.push(`${(U * p).toFixed(2)},${c(d(U)).toFixed(2)}`);
+        _.push(`${(U * p).toFixed(2)},${d(c(U)).toFixed(2)}`);
       }
       return `M${_.join(" L")}`;
     }, u = (f) => Math.min(Math.max(f, 0), 1);
@@ -1662,12 +1665,12 @@ let b = class extends lt {
       const f = t.getTime() - s, v = u((i - f) / (e.getTime() - f));
       g = v < 0.5 ? o + v / 0.5 * (1 - o) : (v - 0.5) / 0.5 * a;
     }
-    const w = d(g);
+    const w = c(g);
     return {
       nightPath: h(0, 1, 96),
       dayPath: h(a, o, 48),
       dotX: g * 100,
-      dotY: c(w) / 44 * 100,
+      dotY: d(w) / 44 * 100,
       isUp: w >= 0
     };
   }
@@ -1715,8 +1718,8 @@ let b = class extends lt {
     return e === "clear-night" || e === "sunny" ? s ? "clear-night" : "sunny" : t.includes(e) ? e + (s ? "-night" : "") : e === "exceptional" ? s ? "cloudy-night" : "cloudy" : null;
   }
   _renderHero(e) {
-    const t = this._config.name ?? e.attributes.friendly_name ?? this._config.entity, s = this._override("temperature", "temperature"), i = this._daily[0], a = H(i?.temperature), o = H(i?.templow), r = this._currentCondition || e.state, n = Jt[r] ?? r, l = this._tap("hero"), p = this._heroScene(r), d = this._config, c = (g) => typeof g == "number" ? `${g}px` : g, h = [], u = (d.backgrounds_path ?? Ii).replace(/\/+$/, "");
-    return p && h.push(`--fwc-hero: url("${u}/hero-${p}.jpg?v=2")`), d.hero_bleed_x !== void 0 && h.push(`--fwc-hero-bleed-x: ${c(d.hero_bleed_x)}`), d.hero_bleed_top !== void 0 && h.push(`--fwc-hero-bleed-top: ${c(d.hero_bleed_top)}`), d.hero_extend !== void 0 && h.push(`--fwc-hero-extend: ${c(d.hero_extend)}`), d.hero_radius !== void 0 && h.push(`--fwc-hero-radius: ${c(d.hero_radius)}`), y`
+    const t = this._config.name ?? e.attributes.friendly_name ?? this._config.entity, s = this._override("temperature", "temperature"), i = this._daily[0], a = H(i?.temperature), o = H(i?.templow), r = this._currentCondition || e.state, n = Jt[r] ?? r, l = this._tap("hero"), p = this._heroScene(r), c = this._config, d = (g) => typeof g == "number" ? `${g}px` : g, h = [], u = (c.backgrounds_path ?? Ti).replace(/\/+$/, "");
+    return p && h.push(`--fwc-hero: url("${u}/hero-${p}.jpg?v=2")`), c.hero_bleed_x !== void 0 && h.push(`--fwc-hero-bleed-x: ${d(c.hero_bleed_x)}`), c.hero_bleed_top !== void 0 && h.push(`--fwc-hero-bleed-top: ${d(c.hero_bleed_top)}`), c.hero_extend !== void 0 && h.push(`--fwc-hero-extend: ${d(c.hero_extend)}`), c.hero_radius !== void 0 && h.push(`--fwc-hero-radius: ${d(c.hero_radius)}`), y`
       <div class="hero ${p ? "has-bg" : ""}" ?tappable=${!!l}
            style=${h.join("; ")}
            @pointerdown=${this._markPointer} @click=${l}>
@@ -1748,7 +1751,7 @@ let b = class extends lt {
     for (const [u, g] of [[a, "sunrise"], [o, "sunset"]])
       u && u.getTime() > t && u.getTime() < s && i.push({ kind: "sun", time: u, label: this._timeLabel(u, !0), event: g });
     i.sort((u, g) => u.time.getTime() - g.time.getTime());
-    const r = this._override("wind_gust"), n = this._overrideUnit("wind_gust", "wind_speed_unit") ?? "km/h", l = Jt[this._currentCondition] ?? "", p = l ? `${l} conditions expected for the rest of the day.` + (r !== void 0 ? ` Wind gusts are up to ${S(r)} ${n}.` : "") : "", d = this._tap("hourly"), c = this._config?.tap_actions?.hourly, h = d ?? (c?.action === "none" ? void 0 : (u) => {
+    const r = this._override("wind_gust"), n = this._overrideUnit("wind_gust", "wind_speed_unit") ?? "km/h", l = Jt[this._currentCondition] ?? "", p = l ? `${l} conditions expected for the rest of the day.` + (r !== void 0 ? ` Wind gusts are up to ${S(r)} ${n}.` : "") : "", c = this._tap("hourly"), d = this._config?.tap_actions?.hourly, h = c ?? (d?.action === "none" ? void 0 : (u) => {
       u.stopPropagation(), !this._movedSincePointer(u) && (this._sheetDay === 0 ? this._closeDaySheet() : this._openDaySheet(0));
     });
     return y`
@@ -1759,7 +1762,7 @@ let b = class extends lt {
           ${i.map((u) => u.kind === "sun" ? y`
                 <div class="cell">
                   <div class="cell-label">${u.label}</div>
-                  <img class="cell-icon" src=${this._iconUrl(Pi[u.event])} alt=${u.event} />
+                  <img class="cell-icon" src=${this._iconUrl(Hi[u.event])} alt=${u.event} />
                   <div class="cell-prob"></div>
                   <div class="cell-val sun">${u.event === "sunrise" ? "Sunrise" : "Sunset"}</div>
                 </div>` : y`
@@ -1792,25 +1795,25 @@ let b = class extends lt {
   _renderDaily() {
     const e = this._daily.slice(0, this._config.daily_days ?? 10);
     if (!e.length) return A;
-    const t = e.length <= 7, s = e.map((d) => H(d.templow)).filter((d) => d !== void 0), i = e.map((d) => H(d.temperature)).filter((d) => d !== void 0), a = Math.min(...s, ...i), o = Math.max(...s, ...i), r = Math.max(o - a, 1), n = this._override("temperature", "temperature"), l = this.hass?.locale?.language ?? navigator.language, p = this._tap("daily");
+    const t = e.length <= 7, s = e.map((c) => H(c.templow)).filter((c) => c !== void 0), i = e.map((c) => H(c.temperature)).filter((c) => c !== void 0), a = Math.min(...s, ...i), o = Math.max(...s, ...i), r = Math.max(o - a, 1), n = this._override("temperature", "temperature"), l = this.hass?.locale?.language ?? navigator.language, p = this._tap("daily");
     return y`
       <div class="panel daily" ?tappable=${!!p}
            @pointerdown=${this._markPointer} @click=${p}>
         <div class="panel-head">${e.length}-DAY FORECAST</div>
-        ${e.map((d, c) => {
-      const h = H(d.templow), u = H(d.temperature), g = new Date(d.datetime), w = c === 0 ? "Today" : g.toLocaleDateString(l, { weekday: "short" }), f = h === void 0 ? 0 : (h - a) / r * 100, v = h === void 0 || u === void 0 ? 0 : (u - h) / r * 100, x = c === 0 && n !== void 0 ? (n - a) / r * 100 : void 0;
+        ${e.map((c, d) => {
+      const h = H(c.templow), u = H(c.temperature), g = new Date(c.datetime), w = d === 0 ? "Today" : g.toLocaleDateString(l, { weekday: "short" }), f = h === void 0 ? 0 : (h - a) / r * 100, v = h === void 0 || u === void 0 ? 0 : (u - h) / r * 100, x = d === 0 && n !== void 0 ? (n - a) / r * 100 : void 0;
       return y`
             <div class="drow" tappable
                  @pointerdown=${this._markPointer}
                  @click=${(_) => {
-        _.stopPropagation(), !this._movedSincePointer(_) && (this._sheetDay === c ? this._closeDaySheet() : this._openDaySheet(c));
+        _.stopPropagation(), !this._movedSincePointer(_) && (this._sheetDay === d ? this._closeDaySheet() : this._openDaySheet(d));
       }}>
               <div class="dday">${w}</div>
               <div class="dcond">
-                <img class="dicon" src=${this._iconUrl(rt(d.condition, c === 0 && this._isNight))} alt=${d.condition ?? ""} />
+                <img class="dicon" src=${this._iconUrl(rt(c.condition, d === 0 && this._isNight))} alt=${c.condition ?? ""} />
                 ${(() => {
         if (!t) return A;
-        const _ = this._dayProb(c);
+        const _ = this._dayProb(d);
         return _ === void 0 ? A : y`<span class="dprob">${Math.round(_)}%</span>`;
       })()}
               </div>
@@ -1903,18 +1906,18 @@ let b = class extends lt {
     if (!e.length)
       return y`<div class="sheet-note">No hourly forecast for this day.</div>`;
     const i = this._sheetMode === "precip", a = i ? "%" : "°", o = e.map((m) => i ? m.precipProb : m.temp), r = Math.max(...o), n = Math.min(...o), l = e[o.indexOf(r)], p = e[o.indexOf(n)];
-    let d, c;
+    let c, d;
     const h = [];
     if (i)
-      d = 0, c = 100, h.push(100, 50, 0);
+      c = 0, d = 100, h.push(100, 50, 0);
     else {
-      d = Math.floor(n / 5) * 5, c = Math.ceil(r / 5) * 5;
-      const k = 4, D = Math.max(c - d, 5);
+      c = Math.floor(n / 5) * 5, d = Math.ceil(r / 5) * 5;
+      const k = 4, D = Math.max(d - c, 5);
       let R = 5;
       for (; Math.floor(D / R) + 1 > k; ) R += 5;
-      for (let z = c; z >= d - 1e-3; z -= R) h.push(z);
+      for (let z = d; z >= c - 1e-3; z -= R) h.push(z);
     }
-    const u = Math.max(c - d, i ? 1 : 5), g = e.length, w = (m) => g > 1 ? m / (g - 1) * 100 : 50, f = (m) => (c - m) / u * 100, v = Date.now();
+    const u = Math.max(d - c, i ? 1 : 5), g = e.length, w = (m) => g > 1 ? m / (g - 1) * 100 : 50, f = (m) => (d - m) / u * 100, v = Date.now();
     let x = null;
     if (g > 1 && v > e[0].time && v < e[g - 1].time) {
       for (let m = 0; m < g - 1; m++)
@@ -2049,7 +2052,7 @@ let b = class extends lt {
     if (!s || i < 2) return;
     const a = this._hourScrub / (i - 1);
     e.style.transform = "translateX(0)";
-    const o = e.getBoundingClientRect(), r = t.getBoundingClientRect(), n = s.getBoundingClientRect(), l = getComputedStyle(s), p = parseFloat(l.paddingLeft) || 0, d = parseFloat(l.paddingRight) || 0, c = r.left + a * r.width, h = n.left + p - o.left, u = n.right - d - o.width - o.left, g = Math.min(Math.max(c - o.width / 2 - o.left, h), Math.max(u, h));
+    const o = e.getBoundingClientRect(), r = t.getBoundingClientRect(), n = s.getBoundingClientRect(), l = getComputedStyle(s), p = parseFloat(l.paddingLeft) || 0, c = parseFloat(l.paddingRight) || 0, d = r.left + a * r.width, h = n.left + p - o.left, u = n.right - c - o.width - o.left, g = Math.min(Math.max(d - o.width / 2 - o.left, h), Math.max(u, h));
     e.style.transform = `translateX(${Math.round(g)}px)`;
   }
   /** Nearest hour under the pointer, clamped to the series. */
@@ -2114,10 +2117,10 @@ let b = class extends lt {
     `;
   }
   _renderTiles() {
-    const { rising: e, setting: t } = this._sunTimes(), s = this._override("feels_like", "apparent_temperature"), i = this._override("temperature", "temperature"), a = this._override("humidity", "humidity"), o = this._override("dew_point", "dew_point"), r = this._override("wind_speed", "wind_speed"), n = this._override("wind_gust"), l = this._override("wind_bearing", "wind_bearing"), p = this._override("precipitation_today"), d = this._overrideUnit("wind_speed", "wind_speed_unit") ?? "km/h", c = this._overrideUnit("wind_gust") ?? d, h = e && t ? e < t : !0, u = s === void 0 || i === void 0 ? "" : Math.abs(s - i) < 0.5 ? "Similar to the actual temperature." : s > i ? "It feels warmer than the actual temperature." : "It feels cooler than the actual temperature.", g = this._daily.find((C) => (H(C.precipitation) ?? 0) > 0), w = this.hass?.locale?.language ?? navigator.language, f = g ? H(g.precipitation) ?? 0 : void 0, v = f === void 0 ? "" : `${f < 1 ? "<1" : Math.round(f)} mm`, x = g ? new Date(g.datetime).toDateString() === (/* @__PURE__ */ new Date()).toDateString() : !1, _ = v ? x ? `${v} more expected today.` : `Next expected is ${v} ${new Date(g.datetime).toLocaleDateString(w, { weekday: "short" })}.` : "None expected in the next 10 days.";
+    const { rising: e, setting: t } = this._sunTimes(), s = this._override("feels_like", "apparent_temperature"), i = this._override("temperature", "temperature"), a = this._override("humidity", "humidity"), o = this._override("dew_point", "dew_point"), r = this._override("wind_speed", "wind_speed"), n = this._override("wind_gust"), l = this._override("wind_bearing", "wind_bearing"), p = this._override("precipitation_today"), c = this._overrideUnit("wind_speed", "wind_speed_unit") ?? "km/h", d = this._overrideUnit("wind_gust") ?? c, h = e && t ? e < t : !0, u = s === void 0 || i === void 0 ? "" : Math.abs(s - i) < 0.5 ? "Similar to the actual temperature." : s > i ? "It feels warmer than the actual temperature." : "It feels cooler than the actual temperature.", g = this._daily.find((C) => (H(C.precipitation) ?? 0) > 0), w = this.hass?.locale?.language ?? navigator.language, f = g ? H(g.precipitation) ?? 0 : void 0, v = f === void 0 ? "" : `${f < 1 ? "<1" : Math.round(f)} mm`, x = g ? new Date(g.datetime).toDateString() === (/* @__PURE__ */ new Date()).toDateString() : !1, _ = v ? x ? `${v} more expected today.` : `Next expected is ${v} ${new Date(g.datetime).toLocaleDateString(w, { weekday: "short" })}.` : "None expected in the next 10 days.";
     return y`
         ${this._renderSunTile(h, e, t)}
-        ${this._renderWindTile(r, d, n, c, l)}
+        ${this._renderWindTile(r, c, n, d, l)}
 
         <div class="tile" ?tappable=${!!this._tap("precipitation")}
              @pointerdown=${this._markPointer} @click=${this._tap("precipitation")}>
@@ -2164,23 +2167,23 @@ let b = class extends lt {
     let a = "50%", o = "50%";
     const r = this._mapCentre;
     r && t && (a = `${(vt(r.lon, t.z) * 256 - t.originX) / t.width * 100}%`, o = `${(xt(r.lat, t.z) * 256 - t.originY) / t.height * 100}%`);
-    const n = e ? this._mapSeries : void 0, l = n ? Math.min(this._mapFrame, n.frames.length - 1) : 0, p = n ? new Date(n.times[l]) : void 0, d = this._config?.map_style ?? "dark", c = t ? mi(t, d) : [];
+    const n = e ? this._mapSeries : void 0, l = n ? Math.min(this._mapFrame, n.frames.length - 1) : 0, p = n ? new Date(n.times[l]) : void 0, c = this._config?.map_style ?? "dark", d = t ? mi(t, c) : [];
     return y`
-      <div class="tile map ${d} ${this._mapOpen ? "open" : ""}"
+      <div class="tile map ${c} ${this._mapOpen ? "open" : ""}"
            @click=${() => {
       this._mapOpen || this._toggleMap();
     }}>
         <div class="tile-head">${Y.drop} PRECIPITATION</div>
         <div class="map-frame">
           <div class="map-base">
-            ${c.map((h) => y`
+            ${d.map((h) => y`
               <img class="map-tile" src=${h.base} alt="" style=${`left:${h.left}px;top:${h.top}px;width:${h.size}px;height:${h.size}px`} />`)}
           </div>
           <canvas class="map-heat"></canvas>
           <!-- Labels ride ABOVE the heat field, as they do in the reference:
                place names stay readable through the colour. -->
           <div class="map-labels">
-            ${c.map((h) => y`
+            ${d.map((h) => y`
               <img class="map-tile" src=${h.ref} alt="" style=${`left:${h.left}px;top:${h.top}px;width:${h.size}px;height:${h.size}px`} />`)}
           </div>
 
@@ -2293,8 +2296,8 @@ let b = class extends lt {
       const mt = r(P), [fe, me] = n(31, mt), [Ae, ye] = n(39, mt);
       l += `M${fe.toFixed(2)},${me.toFixed(2)}L${Ae.toFixed(2)},${ye.toFixed(2)}`;
     }
-    const p = a !== void 0, d = p ? a + 180 : 0, c = r(d), h = r(d + 180), u = 38, [g, w] = n(u, h), [f, v] = n(u - 3, h), [x, _] = n(24.5, h), [C, U] = n(22.5, c), [tt, et] = n(30, c), X = 1.32, gt = (u + 2 + 30) / 2, T = (u + 2 - 30) / 2 * X, [ft, m] = n(gt + T, c), [k, D] = n(gt - T, c), R = -Math.sin(c), z = Math.cos(c), V = 3.4 * X, it = k + R * V, st = D + z * V, pe = k - R * V, ue = D - z * V, ge = (I) => {
-      const P = Math.abs(((d - I) % 360 + 360) % 360);
+    const p = a !== void 0, c = p ? a + 180 : 0, d = r(c), h = r(c + 180), u = 38, [g, w] = n(u, h), [f, v] = n(u - 3, h), [x, _] = n(24.5, h), [C, U] = n(22.5, d), [tt, et] = n(30, d), X = 1.32, gt = (u + 2 + 30) / 2, T = (u + 2 - 30) / 2 * X, [ft, m] = n(gt + T, d), [k, D] = n(gt - T, d), R = -Math.sin(d), z = Math.cos(d), V = 3.4 * X, it = k + R * V, st = D + z * V, pe = k - R * V, ue = D - z * V, ge = (I) => {
+      const P = Math.abs(((c - I) % 360 + 360) % 360);
       return (P > 180 ? 360 - P : P) < 12;
     }, It = this._tap("wind");
     return y`
@@ -2329,7 +2332,7 @@ let b = class extends lt {
                  solid white, and the glyph vanished. The letter the arrow is
                  aimed at is dropped instead — the arrow already occupies that
                  gap in the tick ring and reads as the direction marker. -->
-            ${Hi.map(([I, P, Tt, mt]) => p && ge(mt) ? A : E`
+            ${Ui.map(([I, P, Tt, mt]) => p && ge(mt) ? A : E`
                   <text class="dial-card" x=${P} y=${Tt} text-anchor="middle"
                         dominant-baseline="middle">${I}</text>`)}
             <!-- y is in viewBox units: the dial renders at 0.80x the tile
@@ -3215,7 +3218,7 @@ b.styles = Ue`
       border-radius: 3px;
       /* 0.88 read as over-stretched; 20% shorter. */
       height: calc(var(--fwc-tile) * 0.704);
-      background: linear-gradient(to top, ${Ei});
+      background: linear-gradient(to top, ${Di});
     }
     .map-legend-labels {
       display: flex;

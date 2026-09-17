@@ -319,6 +319,23 @@ Every browser profile keeps its own cache, so a tablet, a phone and a desktop ea
 instead, on a timer, and writes `precip-grid.json` next to the card. At the default refresh that is
 a flat ~6.9k calls a day no matter how many dashboards are open. Setup is in the file's docstring.
 
+### Sensors for cards sitting beside this one
+
+The script also publishes four plain sensors from the same bytes the card reads:
+
+```
+sensor.weather_now_condition     sensor.weather_today_high
+sensor.weather_today_condition   sensor.weather_today_low
+```
+
+Use these for a launcher button or badge next to the card. Reading a weather **entity** instead
+cannot guarantee the two agree, even on the same provider: the Home Assistant integration polls on
+its own schedule and derives its current condition separately, so it drifts a step away from what
+the card draws — a button reading `cloudy` beside a card showing `partlycloudy`. These cannot
+differ, because they are the same fetch.
+
+They exist only while pyscript is running; without it, read the weather entity and accept the drift.
+
 The same script also writes `precip-hourly.json` — the ten-day hourly forecast for your own
 location, used by the day card and the daily list's chance of precipitation. Unlike the grid this
 is a **single** point, so it is not about quota: one location costs one call whoever makes it. It is

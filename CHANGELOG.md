@@ -1,5 +1,26 @@
 # Changelog
 
+## [3.1.1] - 2026-09-17
+
+### Added
+
+- The optional pyscript cache now also publishes `sensor.weather_now_condition`,
+  `sensor.weather_today_condition`, `sensor.weather_today_high` and `sensor.weather_today_low`.
+
+  A dashboard button beside the card must not contradict it, and reading a weather **entity** cannot
+  guarantee that even on the same provider: the Home Assistant integration polls on its own schedule
+  and derives its current condition separately, so it drifts a step away from what the card draws —
+  observed 2026-09-17, the card showing `partlycloudy` against the entity's `cloudy`. These sensors
+  come from the exact bytes the card reads, so the two cannot differ.
+
+### Fixed
+
+- **Present conditions could sit an hour behind the shared file they came from.** The browser cached
+  for an hour while pyscript rewrites the file every thirty minutes, and the file was only consulted
+  once that browser copy expired. The shared file is now read *first* and re-read after five minutes
+  — it is a local request, so sitting on a staler copy bought nothing and introduced visible
+  disagreement. The hour-long cache still governs direct API data, where it does save quota.
+
 ## [3.1.0] - 2026-09-09
 
 ### Added

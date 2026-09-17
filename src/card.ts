@@ -27,7 +27,7 @@ import {
   type PrecipGrid, type Viewport, type MapStyle,
 } from './precip-map.js';
 import {
-  fetchHourlyDays, localDateKey, HOURLY_TTL_MS,
+  fetchHourlyDays, localDateKey, HOURLY_TTL_MS, SHARED_TTL_MS,
   type HourlyDays, type HourPoint,
 } from './hourly-source.js';
 
@@ -594,7 +594,10 @@ export class FruityWeatherCard extends LitElement {
     const lat = this.hass?.config?.latitude;
     const lon = this.hass?.config?.longitude;
     if (lat === undefined || lon === undefined || this._hourlyPending) return;
-    if (!force && this._hourlyDays && Date.now() - this._hourlyDays.fetchedAt < HOURLY_TTL_MS) return;
+    // Shared-file data is re-read far sooner than API data: it is a local
+    // request, so there is no reason to sit on a copy older than the file.
+    const ttl = this._hourlyDays?.fromFile ? SHARED_TTL_MS : HOURLY_TTL_MS;
+    if (!force && this._hourlyDays && Date.now() - this._hourlyDays.fetchedAt < ttl) return;
     if (!force && Date.now() < this._hourlyRetryAt) return;
     this._hourlyPending = true;
     this._hourlyError = false;

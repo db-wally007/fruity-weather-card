@@ -262,6 +262,24 @@ place the two can diverge. Two traps, both hit while building it:
 `entity` stays required — the unit strings come from it and it is the fallback — so
 `_config.entity` must never become optional.
 
+### Anything shown NEXT to the card must read the pyscript sensors, not an entity
+
+Two paths into one provider still disagree. The card reads the live API (or the shared file); the
+Home Assistant integration polls separately and derives its own current condition. Observed
+2026-09-17: card `partlycloudy`, entity `cloudy`. Switching everything to one *provider* does not
+fix this — only reading the same *bytes* does.
+
+So `_publish_today` in the pyscript companion sets `sensor.weather_now_condition`,
+`sensor.weather_today_condition` and `sensor.weather_today_high`/`_low` straight from the payload it
+just wrote. Its `_condition_for_code` MUST stay identical to `conditionForCode` in
+`src/hourly-source.ts`, or a button picks different scene artwork from the card beside it.
+
+Related: the shared file is read BEFORE localStorage, and file-sourced data expires after
+`SHARED_TTL_MS` (5 min) rather than `HOURLY_TTL_MS` (1 hour). The file is rewritten every 30
+minutes, so an hour-long browser cache left the card an hour behind its own source. Re-reading it is
+a local request; the hour only ever existed to protect the API quota, which the file path does not
+touch.
+
 ### The daily list panel is a FIXED height, so rows shrink as days grow
 
 Two tiles tall however many rows it holds: six rows are 50px, ten are 30px. A glyph plus a chance

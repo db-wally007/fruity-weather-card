@@ -253,11 +253,80 @@ def _sync_hourly():
         return False
     os.makedirs(os.path.dirname(HOURLY_OUT_PATH), exist_ok=True)
     _write_bytes(HOURLY_OUT_PATH, json.dumps(payload, separators=(",", ":")).encode("utf-8"))
+    _publish_today(payload)
     log.info(
         "fruity_weather: wrote %d hourly points and %d daily to %s",
         len(payload["hourly"]["time"]), len(payload["daily"]["time"]), HOURLY_OUT_PATH,
     )
     return True
+
+
+# WMO code -> Home Assistant condition. Must match conditionForCode() in
+# src/hourly-source.ts, or a dashboard reading these sensors would pick
+# different scene artwork from the card sitting next to it.
+def _condition_for_code(code):
+    if code == 0:
+        return "sunny"
+    if code in (1, 2):
+        return "partlycloudy"
+    if code == 3:
+        return "cloudy"
+    if code in (45, 48):
+        return "fog"
+    if 51 <= code <= 57:
+        return "rainy"
+    if 61 <= code <= 65:
+        return "pouring" if code >= 65 else "rainy"
+    if code in (66, 67):
+        return "snowy-rainy"
+    if 71 <= code <= 77:
+        return "snowy"
+    if 80 <= code <= 82:
+        return "pouring" if code == 82 else "rainy"
+    if code in (85, 86):
+        return "snowy"
+    if code == 95:
+        return "lightning"
+    if code in (96, 99):
+        return "lightning-rainy"
+    return "cloudy"
+
+
+def _publish_today(payload):
+    """Expose today's high, low and condition as plain sensors.
+
+    A dashboard button sitting beside the card must not disagree with it, and
+    reading a weather ENTITY cannot guarantee that even on the same provider:
+    the Home Assistant integration polls on its own schedule and derives its
+    current condition separately, so it drifts a step away from what the card
+    draws — observed 2026-09-17, the card showing `partlycloudy` while the
+    entity said `cloudy`. These come from the exact bytes the card reads, so
+    the two cannot differ.
+    """
+    daily = payload.get("daily") or {}
+    times = daily.get("time") or []
+    if not times:
+        return
+    hi = (daily.get("temperature_2m_max") or [None])[0]
+    lo = (daily.get("temperature_2m_min") or [None])[0]
+    code = (daily.get("weather_code") or [None])[0]
+    cur = payload.get("current") or {}
+    now_code = cur.get("weather_code")
+
+    if hi is not None:
+        state.set("sensor.weather_today_high", round(hi),
+                  {"unit_of_measurement": "°C", "friendly_name": "Weather Today High",
+                   "device_class": "temperature", "state_class": "measurement"})
+    if lo is not None:
+        state.set("sensor.weather_today_low", round(lo),
+                  {"unit_of_measurement": "°C", "friendly_name": "Weather Today Low",
+                   "device_class": "temperature", "state_class": "measurement"})
+    if now_code is not None:
+        state.set("sensor.weather_now_condition", _condition_for_code(int(now_code)),
+                  {"friendly_name": "Weather Now Condition"})
+    if code is not None:
+        state.set("sensor.weather_today_condition", _condition_for_code(int(code)),
+                  {"friendly_name": "Weather Today Condition"})
 
 
 @service

@@ -74,6 +74,8 @@ export interface HourlyDays {
   dayStat: Map<string, DayStat>;
   /** Present conditions, same proviso as `dayStat`. */
   current?: CurrentPoint;
+  /** True when this came from the shared pyscript file rather than the API. */
+  fromFile?: boolean;
 }
 
 export interface DayStat {
@@ -124,6 +126,16 @@ export const CURRENT_VARS =
   + ',wind_speed_10m,wind_direction_10m,wind_gusts_10m';
 /** The provider updates hourly; refetching more often just spends quota. */
 export const HOURLY_TTL_MS = 60 * 60 * 1000;
+/**
+ * How stale SHARED-FILE data may get before it is re-read.
+ *
+ * Much shorter than the API's TTL because re-reading costs a local request and
+ * nothing else — pyscript refreshes the file every 30 minutes, and an hour-long
+ * cache meant the card's present conditions could sit an hour behind the very
+ * file they came from, visibly disagreeing with a dashboard button published
+ * from the same bytes.
+ */
+export const SHARED_TTL_MS = 5 * 60 * 1000;
 
 /**
  * WMO weather codes to the card's Home Assistant condition slugs. Open-Meteo
@@ -322,7 +334,7 @@ async function fetchLocalHourly(): Promise<HourlyDays | undefined> {
     const { dayProb, daySun, dayStat } = readDaily(c.daily ?? {});
     return {
       fetchedAt: c.fetchedAt, days: groupByDay(c.hourly),
-      dayProb, daySun, dayStat, current: readCurrent(c.current),
+      dayProb, daySun, dayStat, current: readCurrent(c.current), fromFile: true,
     };
   } catch {
     return undefined;
@@ -361,17 +373,19 @@ async function fetchHourlyDaysUncached(
   lon: number,
   force = false,
 ): Promise<HourlyDays> {
-  if (!force) {
-    const cached = readCache();
-    if (cached) return cached;
-  }
-
-  // Shared file first: it costs a local request and spares the household an API
-  // call. Anything wrong with it falls through to the network silently.
+  // The shared file is consulted BEFORE localStorage, not after. It is a local
+  // request, it is written every 30 minutes, and it is the same bytes any other
+  // device in the house is reading — so preferring a browser copy that may be
+  // an hour old only introduces disagreement for no saving.
   const shared = await fetchLocalHourly();
   if (shared) {
     writeCache(shared);
     return shared;
+  }
+
+  if (!force) {
+    const cached = readCache();
+    if (cached) return cached;
   }
 
   const url =
