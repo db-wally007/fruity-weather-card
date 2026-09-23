@@ -351,10 +351,59 @@ def _stale(path):
     return (time.time() - os.path.getmtime(path)) / 60 > REFRESH_MINUTES
 
 
+def _read_json(path):
+    """Low-level read: pyscript sandboxes the builtin open()."""
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        chunks = []
+        while True:
+            b = os.read(fd, 65536)
+            if not b:
+                break
+            chunks.append(b)
+    finally:
+        os.close(fd)
+    return json.loads(b"".join(chunks).decode("utf-8"))
+
+
+@service
+def fruity_weather_publish():
+    """Republish today's sensors from the cached file, without fetching.
+
+    Separate from fruity_weather_sync so the state machine can be repopulated
+    without spending an API call — and so this path is testable on its own.
+    """
+    return _republish()
+
+
+def _republish():
+    try:
+        _publish_today(_read_json(HOURLY_OUT_PATH))
+        log.info("fruity_weather: republished today's sensors from the cached file")
+        return True
+    except Exception as err:
+        log.warning("fruity_weather: could not republish from cache: %s", err)
+        return False
+
+
 @time_trigger("startup")
 def fruity_weather_startup():
-    """Seed either file if it is missing or older than one refresh interval."""
+    """Seed either file if it is stale, and ALWAYS republish the sensors.
+
+    The sensors are set with state.set, which writes to the state machine and
+    nothing else — they do not survive a restart. Publishing them only inside
+    _sync_hourly() meant that a restart with a fresh file skipped the sync, so
+    they stayed missing until the next half-hour tick and every card reading
+    them rendered blank for up to thirty minutes.
+
+    So a stale file is refetched (which republishes on its way through), and a
+    fresh one is republished from disk without spending a call.
+    """
     if _stale(OUT_PATH):
         _sync()
     if _stale(HOURLY_OUT_PATH):
+        _sync_hourly()
+    elif not _republish():
+        # The file is fresh but unreadable — fetch rather than leave the
+        # sensors missing.
         _sync_hourly()

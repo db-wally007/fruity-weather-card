@@ -262,6 +262,36 @@ place the two can diverge. Two traps, both hit while building it:
 `entity` stays required — the unit strings come from it and it is the fallback — so
 `_config.entity` must never become optional.
 
+### A pyscript state.set entity must NOT have an entity-registry entry
+
+`state.set` writes to the state machine and nothing else. If the same entity id also has a registry
+entry owned by some integration — typically one left behind when that integration's config was
+removed — Home Assistant periodically re-asserts it as a restored entity and writes `unavailable`,
+stomping the value pyscript just wrote.
+
+Observed 2026-09-20..22 after the template package behind `sensor.weather_today_high`/`_low` was
+retired but its registry entries were not: those two went `unavailable` six times in three days, at
+random moments, each time recovering on the next half-hour tick. The two condition sensors, which
+have no registry entry at all, never faltered once. That contrast is the diagnostic — compare a
+pyscript sensor that HAS a registry entry against one that does not.
+
+Retiring an integration that owned entity ids pyscript now publishes means removing the registry
+entries too (`config/entity_registry/remove` over the websocket; the MCP has no tool for it and
+`config_entries/remove` answers "Unknown command" on this version — the REST
+`DELETE /api/config/config_entries/entry/<id>` does work for config entries).
+
+### Pyscript states do not survive a restart, so republish on startup
+
+Same reason: the state machine is all they live in. `fruity_weather_startup` therefore republishes
+from the cached file whenever the file is fresh enough not to need refetching — publishing only
+inside `_sync_hourly()` meant a restart with a fresh file skipped the sync entirely and left every
+card reading those sensors blank for up to thirty minutes. `pyscript.fruity_weather_publish` does
+the same on demand, without spending an API call.
+
+Note Open-Meteo does return **503** occasionally (twice on 2026-09-23). The fetch failure path keeps
+the previous file and leaves the sensors at their last value, which is correct — do not "fix" it by
+clearing them.
+
 ### Anything shown NEXT to the card must read the pyscript sensors, not an entity
 
 Two paths into one provider still disagree. The card reads the live API (or the shared file); the

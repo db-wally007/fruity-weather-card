@@ -1,5 +1,25 @@
 # Changelog
 
+## [3.1.2] - 2026-09-23
+
+### Fixed
+
+- **The published sensors dropped out at random, several times a day.** `state.set` writes to the
+  state machine only, so an entity id that *also* carries a registry entry from some other
+  integration gets re-asserted as a restored entity and overwritten with `unavailable`. Anything
+  reading it rendered blank until the next half-hour tick. The sensors with no registry entry were
+  never affected, which is what isolated it. Removing a stale registry entry is an install-side
+  step, so `CLAUDE.md` now records the symptom and the fix.
+- **The sensors went missing entirely after a restart**, for up to thirty minutes. They were only
+  published inside the fetch, and the startup trigger skips the fetch when the cached file is still
+  fresh — so nothing republished them. Startup now republishes from the cached file whenever it does
+  not need refetching.
+
+### Added
+
+- `pyscript.fruity_weather_publish` — republish the sensors from the cached file on demand, without
+  spending an API call.
+
 ## [3.1.1] - 2026-09-17
 
 ### Added
