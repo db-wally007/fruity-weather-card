@@ -1,5 +1,22 @@
 # Changelog
 
+## [4.0.1] - 2026-10-02
+
+### Fixed
+
+- **Every scheduled fetch was failing with HTTP 503.** Not a quota and not our own burst: the
+  identical request sent ad hoc from the same container returned 200 in 0.1s every time, including
+  three 143-point grid requests back to back. What all twelve observed failures had in common was
+  the clock — they ran at `:00` and `:30`, when every cron on the internet fires and Open-Meteo
+  sheds load. Two defences:
+  - The automation in the docstring now runs at **:06 and :36**. Note it takes **two**
+    `time_pattern` triggers: that trigger accepts a single minute or a `/N` step, never a comma
+    list, and `"6,36"` loads as `None` and disables the automation outright.
+  - Requests retry up to three times with a growing delay, so a 503 that lands anyway no longer
+    leaves the file stale for a whole refresh interval. Only 5xx and transport errors retry — a
+    4xx or an exhausted daily quota fails identically however often it is sent, and retrying those
+    would only spend more of the allowance.
+
 ## [4.0.0] - 2026-10-02
 
 ### Upgrading

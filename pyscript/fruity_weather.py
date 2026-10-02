@@ -40,7 +40,11 @@ exception raised here is caught and logged by pyscript and never reaches the
 caller. The calling script checks `ok` and stops with an error, which records a
 failed run that monitoring can see. Every 30 minutes, to match REFRESH_MINUTES,
 and once at Home Assistant's start with only_if_stale, so a restart republishes
-the sensors without spending 143 calls of the daily quota:
+the sensors without spending 143 calls of the daily quota.
+
+Run it at :06 and :36, NOT on the round minute — see the note on RETRIES below.
+Scheduling on :00/:30 put every run into the same load spike as every other
+cron on the internet and Open-Meteo answered 503 to all of them:
 
     script:
       fruity_weather_sync:
@@ -60,8 +64,13 @@ the sensors without spending 143 calls of the daily quota:
 
     automation:
       - triggers:
+          # Two triggers, not one: time_pattern takes a single minute or a
+          # "/N" step, never a comma list — "6,36" loads as None and disables
+          # the automation outright.
           - trigger: time_pattern
-            minutes: "/30"
+            minutes: 6
+          - trigger: time_pattern
+            minutes: 36
           - trigger: homeassistant
             event: start
             id: start
@@ -83,6 +92,7 @@ can); and the interpreter has no generator expressions — use list comprehensio
 import json
 import os
 import time
+import urllib.error
 import urllib.request
 
 # ---- grid geometry — keep identical to src/precip-map.ts --------------------
@@ -102,6 +112,20 @@ FORECAST_QUARTERS = 8
 # The calling automation's interval. Only only_if_stale reads it: a file older
 # than this is refetched at startup, a younger one is reused.
 REFRESH_MINUTES = 30
+
+# Open-Meteo sheds load on the round minute, when every cron on the internet
+# fires at once. Measured 2026-10-02: twelve consecutive scheduled runs at :00
+# and :30 all returned 503, while the identical request issued ad hoc from the
+# same container returned 200 in 0.1s every time — including three 143-point
+# grid requests back to back, which rules out our own burst as the cause.
+#
+# Two defences, because moving the schedule alone is not enough: the automation
+# in the docstring fires at :06 and :36 to miss the herd, and these retries ride
+# out a 503 that lands anyway. Without them one transient failure left the file
+# stale for a whole refresh interval.
+RETRIES = 3
+RETRY_BACKOFF_S = 20
+
 OUT_PATH = "/config/www/fruity-weather-card/precip-grid.json"
 API = "https://api.open-meteo.com/v1/forecast"
 TIMEOUT = 60
@@ -128,6 +152,41 @@ CURRENT_VARS = (
     ",wind_speed_10m,wind_direction_10m,wind_gusts_10m"
 )
 HOURLY_DAYS = 10
+
+
+def _get(url):
+    """GET with retries, returning the body as bytes.
+
+    Retries any 5xx and any transport error, not 4xx: a bad request or an
+    exhausted daily quota will fail identically however many times it is sent,
+    and retrying those would only spend more of the allowance.
+    """
+    last = None
+    for attempt in range(RETRIES):
+        if attempt:
+            task.sleep(RETRY_BACKOFF_S * attempt)
+        req = urllib.request.Request(url, headers={"User-Agent": "fruity-weather-card"})
+        try:
+            resp = task.executor(urllib.request.urlopen, req, timeout=TIMEOUT)
+            try:
+                return task.executor(resp.read)
+            finally:
+                resp.close()
+        except urllib.error.HTTPError as err:
+            last = err
+            if err.code < 500:
+                raise
+            log.warning(
+                "fruity_weather: HTTP %s on attempt %d of %d, retrying",
+                err.code, attempt + 1, RETRIES,
+            )
+        except Exception as err:
+            last = err
+            log.warning(
+                "fruity_weather: %s on attempt %d of %d, retrying",
+                type(err).__name__, attempt + 1, RETRIES,
+            )
+    raise last
 
 
 def _write_bytes(path, data):
@@ -167,12 +226,7 @@ def _fetch_grid(lat0, lon0):
         + "&minutely_15=precipitation&forecast_minutely_15=" + str(FORECAST_QUARTERS)
         + "&timezone=UTC"
     )
-    req = urllib.request.Request(url, headers={"User-Agent": "fruity-weather-card"})
-    resp = task.executor(urllib.request.urlopen, req, timeout=TIMEOUT)
-    try:
-        body = task.executor(resp.read)
-    finally:
-        resp.close()
+    body = _get(url)
     points = json.loads(body.decode("utf-8"))
     if not isinstance(points, list):
         points = [points]
@@ -244,12 +298,7 @@ def _fetch_hourly(lat0, lon0):
         + "&forecast_days=" + str(HOURLY_DAYS)
         + "&timezone=auto"
     )
-    req = urllib.request.Request(url, headers={"User-Agent": "fruity-weather-card"})
-    resp = task.executor(urllib.request.urlopen, req, timeout=TIMEOUT)
-    try:
-        body = task.executor(resp.read)
-    finally:
-        resp.close()
+    body = _get(url)
     data = json.loads(body.decode("utf-8"))
 
     hourly = data.get("hourly") or {}
