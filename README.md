@@ -316,8 +316,10 @@ Set `map: true` and the card will fetch the grid itself. That is fine for one br
 Every browser profile keeps its own cache, so a tablet, a phone and a desktop each pay full price.
 
 [`pyscript/fruity_weather.py`](pyscript/fruity_weather.py) fetches it once for the whole house
-instead, on a timer, and writes `precip-grid.json` next to the card. At the default refresh that is
-a flat ~6.9k calls a day no matter how many dashboards are open. Setup is in the file's docstring.
+instead and writes `precip-grid.json` next to the card. Home Assistant runs it every 30 minutes
+from an automation, through a script that fails whenever a fetch does, so a broken sync shows up
+as a failed run rather than only in the log. That is a flat ~6.9k calls a day no matter how many
+dashboards are open. Setup, including the automation and the script, is in the file's docstring.
 
 ### Sensors for cards sitting beside this one
 

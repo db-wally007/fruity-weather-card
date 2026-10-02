@@ -30,8 +30,47 @@ Setup
 2. Symlink this file into /config/pyscript/:
        ln -s ../www/fruity-weather-card/pyscript/fruity_weather.py \\
              /config/pyscript/fruity_weather.py
-3. `pyscript.reload`, then call `pyscript.fruity_weather_sync` once to seed the
-   file (otherwise the card waits for the next half-hour tick).
+3. Schedule it from Home Assistant (below), then `pyscript.reload`.
+
+There is deliberately NO schedule in here. Call pyscript.fruity_weather_sync from
+a Home Assistant SCRIPT, on an automation's schedule: a pyscript timer leaves no
+run history, so a failing fetch would only ever reach the log. The action RETURNS
+the outcome - {"ok": true} or {"ok": false, "error": "..."} - because an
+exception raised here is caught and logged by pyscript and never reaches the
+caller. The calling script checks `ok` and stops with an error, which records a
+failed run that monitoring can see. Every 30 minutes, to match REFRESH_MINUTES,
+and once at Home Assistant's start with only_if_stale, so a restart republishes
+the sensors without spending 143 calls of the daily quota:
+
+    script:
+      fruity_weather_sync:
+        fields:
+          only_if_stale:
+            selector:
+              boolean:
+        sequence:
+          - action: pyscript.fruity_weather_sync
+            data:
+              only_if_stale: "{{ only_if_stale | default(false) }}"
+            response_variable: sync
+          - if: "{{ not (sync is mapping and sync.ok | default(false)) }}"
+            then:
+              - stop: Fruity weather sync failed
+                error: true
+
+    automation:
+      - triggers:
+          - trigger: time_pattern
+            minutes: "/30"
+          - trigger: homeassistant
+            event: start
+            id: start
+        actions:
+          - action: script.turn_on
+            target: {entity_id: script.fruity_weather_sync}
+            data:
+              variables:
+                only_if_stale: "{{ trigger.id == 'start' }}"
 
 The grid geometry below MUST match GRID_NX / GRID_NY / D_LON / D_LAT in
 src/precip-map.ts — the card refuses a file whose dimensions differ.
@@ -60,6 +99,8 @@ D_LAT = 0.375
 FORECAST_HOURS = 13
 FORECAST_QUARTERS = 8
 
+# The calling automation's interval. Only only_if_stale reads it: a file older
+# than this is refetched at startup, a younger one is reused.
 REFRESH_MINUTES = 30
 OUT_PATH = "/config/www/fruity-weather-card/precip-grid.json"
 API = "https://api.open-meteo.com/v1/forecast"
@@ -167,6 +208,7 @@ def _fetch_grid(lat0, lon0):
 
 
 def _sync():
+    """Fetch and write the grid. Returns None, or why it failed."""
     lat0 = round(float(hass.config.latitude), 6)
     lon0 = round(float(hass.config.longitude), 6)
     try:
@@ -174,15 +216,15 @@ def _sync():
     except Exception as err:
         # Keep whatever is already on disk. A stale grid beats no grid, and the
         # daily-quota error cannot be retried away before midnight UTC anyway.
-        log.warning("fruity_weather: grid fetch failed, keeping previous file: %s", err)
-        return False
+        # The run still FAILS: the caller reports it, the file is just kept.
+        return f"grid fetch failed, kept the previous file: {err}"
     os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)
     _write_bytes(OUT_PATH, json.dumps(grid, separators=(",", ":")).encode("utf-8"))
     log.info(
         "fruity_weather: wrote %d points x %d hourly frames to %s",
         GRID_NX * GRID_NY, len(grid["hourly"]["times"]), OUT_PATH,
     )
-    return True
+    return None
 
 
 def _fetch_hourly(lat0, lon0):
@@ -242,6 +284,7 @@ def _fetch_hourly(lat0, lon0):
 
 
 def _sync_hourly():
+    """Fetch and write the ten-day hourly file. Returns None, or why it failed."""
     lat0 = round(float(hass.config.latitude), 4)
     lon0 = round(float(hass.config.longitude), 4)
     try:
@@ -249,8 +292,7 @@ def _sync_hourly():
     except Exception as err:
         # As with the grid: a stale file beats no file, and the card falls back
         # to calling the API itself if this one goes too far out of date.
-        log.warning("fruity_weather: hourly fetch failed, keeping previous file: %s", err)
-        return False
+        return f"hourly fetch failed, kept the previous file: {err}"
     os.makedirs(os.path.dirname(HOURLY_OUT_PATH), exist_ok=True)
     _write_bytes(HOURLY_OUT_PATH, json.dumps(payload, separators=(",", ":")).encode("utf-8"))
     _publish_today(payload)
@@ -258,7 +300,7 @@ def _sync_hourly():
         "fruity_weather: wrote %d hourly points and %d daily to %s",
         len(payload["hourly"]["time"]), len(payload["daily"]["time"]), HOURLY_OUT_PATH,
     )
-    return True
+    return None
 
 
 # WMO code -> Home Assistant condition. Must match conditionForCode() in
@@ -329,18 +371,36 @@ def _publish_today(payload):
                   {"friendly_name": "Weather Today Condition"})
 
 
-@service
-def fruity_weather_sync():
-    """Fetch the precipitation grid and the hourly forecast now."""
-    _sync()
-    _sync_hourly()
+def _failed(reason):
+    log.error(f"fruity_weather: {reason}")
+    return {"ok": False, "error": reason}
 
 
-@time_trigger("cron(0,30 * * * *)")
-def fruity_weather_periodic():
-    """Refresh every 30 minutes — 48 runs/day, ~6.9k of the 10k daily calls."""
-    _sync()
-    _sync_hourly()
+@service(supports_response="optional")
+def fruity_weather_sync(only_if_stale=False):
+    """Fetch the precipitation grid and the hourly forecast now. Returns ok, or the error.
+
+    only_if_stale is for Home Assistant's start. It fetches only a file older than
+    REFRESH_MINUTES, and republishes the sensors from a fresh one instead. The
+    sensors are set with state.set, which writes to the state machine and nothing
+    else, so they do not survive a restart. Publishing them only inside
+    _sync_hourly() meant a restart with a fresh file skipped the fetch, and every
+    card reading them stayed blank until the next half-hour run.
+    """
+    errors = []
+    if not only_if_stale or _stale(OUT_PATH):
+        err = _sync()
+        if err:
+            errors.append(err)
+    if not only_if_stale or _stale(HOURLY_OUT_PATH) or not _republish():
+        # The last case: the file is fresh but unreadable - fetch rather than
+        # leave the sensors missing.
+        err = _sync_hourly()
+        if err:
+            errors.append(err)
+    if errors:
+        return _failed("; ".join(errors))
+    return {"ok": True}
 
 
 def _stale(path):
@@ -384,26 +444,3 @@ def _republish():
     except Exception as err:
         log.warning("fruity_weather: could not republish from cache: %s", err)
         return False
-
-
-@time_trigger("startup")
-def fruity_weather_startup():
-    """Seed either file if it is stale, and ALWAYS republish the sensors.
-
-    The sensors are set with state.set, which writes to the state machine and
-    nothing else — they do not survive a restart. Publishing them only inside
-    _sync_hourly() meant that a restart with a fresh file skipped the sync, so
-    they stayed missing until the next half-hour tick and every card reading
-    them rendered blank for up to thirty minutes.
-
-    So a stale file is refetched (which republishes on its way through), and a
-    fresh one is republished from disk without spending a call.
-    """
-    if _stale(OUT_PATH):
-        _sync()
-    if _stale(HOURLY_OUT_PATH):
-        _sync_hourly()
-    elif not _republish():
-        # The file is fresh but unreadable — fetch rather than leave the
-        # sensors missing.
-        _sync_hourly()

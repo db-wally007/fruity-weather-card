@@ -282,15 +282,26 @@ entries too (`config/entity_registry/remove` over the websocket; the MCP has no 
 
 ### Pyscript states do not survive a restart, so republish on startup
 
-Same reason: the state machine is all they live in. `fruity_weather_startup` therefore republishes
-from the cached file whenever the file is fresh enough not to need refetching — publishing only
-inside `_sync_hourly()` meant a restart with a fresh file skipped the sync entirely and left every
-card reading those sensors blank for up to thirty minutes. `pyscript.fruity_weather_publish` does
-the same on demand, without spending an API call.
+Same reason: the state machine is all they live in. The automation's Home Assistant start trigger
+therefore calls the sync with `only_if_stale: true`, which republishes from the cached file whenever
+the file is fresh enough not to need refetching — publishing only inside `_sync_hourly()` meant a
+restart with a fresh file skipped the sync entirely and left every card reading those sensors blank
+for up to thirty minutes. `pyscript.fruity_weather_publish` does the same on demand, without
+spending an API call.
 
 Note Open-Meteo does return **503** occasionally (twice on 2026-09-23). The fetch failure path keeps
 the previous file and leaves the sensors at their last value, which is correct — do not "fix" it by
-clearing them.
+clearing them. The run still reports `ok: false`, so the calling script records a failed run; that
+is intended too.
+
+### The schedule lives in Home Assistant, never in the pyscript
+
+Do not add a `@time_trigger` back. A pyscript timer leaves no run history, and pyscript catches
+every exception raised in a run and only logs it, so a sync that failed for days was visible
+nowhere but the log. The service returns `{"ok": ..., "error": ...}` instead of raising, and a Home
+Assistant script on an automation's schedule turns `ok: false` into `stop: … error: true`, a failed
+run that a monitor of scripts can see. The YAML is in the pyscript's docstring; keep it in step
+with the service's arguments.
 
 ### Anything shown NEXT to the card must read the pyscript sensors, not an entity
 

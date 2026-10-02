@@ -1,5 +1,27 @@
 # Changelog
 
+## [4.0.0] - 2026-10-02
+
+### Upgrading
+
+**If you use the optional pyscript cache, it will stop refreshing until you add the automation and
+script from the top of `pyscript/fruity_weather.py`.** The file no longer schedules itself, so an
+existing install that only symlinked it keeps serving whatever it last wrote and never updates —
+silently. The card itself needs no change: it falls back to calling the API directly once the
+shared file goes stale, though anything reading the published sensors stops updating with it.
+
+### Changed
+
+- **The pyscript cache no longer schedules itself — add the automation and script from its
+  docstring, or the files stop refreshing.** A pyscript timer leaves no run history, so a failing
+  fetch only ever reached the log as a warning. `pyscript.fruity_weather_sync` now returns
+  `{"ok": true}` or `{"ok": false, "error": "…"}`, and a Home Assistant script calls it every
+  30 minutes and stops with an error when it is not ok, which records a failed run that
+  monitoring can see. A failed fetch still keeps the previous file.
+- The startup trigger is replaced by `only_if_stale: true`, passed by the automation's start
+  trigger: it fetches only a file older than the refresh interval and republishes the sensors
+  from a fresh one, so a restart still spends no API quota.
+
 ## [3.1.2] - 2026-09-23
 
 ### Fixed
