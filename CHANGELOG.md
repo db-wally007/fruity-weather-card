@@ -1,5 +1,15 @@
 # Changelog
 
+## [4.0.2] - 2026-10-04
+
+### Fixed
+
+- **The sync recorded a failed run on every Home Assistant restart.** The automation's start
+  trigger fires before pyscript has registered `pyscript.fruity_weather_sync`, so the script called
+  an action that did not exist yet. The example automation now waits a minute after a start before
+  running the script; the half-hourly runs are unaffected. If you copied the automation from an
+  earlier version, add the `if` / `delay` step at the top of its actions.
+
 ## [4.0.1] - 2026-10-02
 
 ### Fixed

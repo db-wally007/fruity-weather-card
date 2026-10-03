@@ -75,6 +75,14 @@ cron on the internet and Open-Meteo answered 503 to all of them:
             event: start
             id: start
         actions:
+          # After a start, wait for pyscript to register its action: at the
+          # start event itself pyscript.fruity_weather_sync does not exist
+          # yet, so without this every restart records a failed run.
+          - if:
+              - condition: trigger
+                id: start
+            then:
+              - delay: "00:01:00"
           - action: script.turn_on
             target: {entity_id: script.fruity_weather_sync}
             data:
